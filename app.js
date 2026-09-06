@@ -5,14 +5,55 @@ let data = JSON.parse(
 ) || {
   books: [],
   plans: [],
-  records: []
+  records: [],
+  activeTimer: null
 };
 
+
+/* =========================
+   データ保存
+========================= */
+
 function save() {
+
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify(data)
   );
+
+}
+
+
+/* =========================
+   ID
+========================= */
+
+function createId() {
+
+  if (crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  return Date.now().toString();
+}
+
+
+/* =========================
+   日本時間の日付
+========================= */
+
+function getLocalDate(date = new Date()) {
+
+  const y = date.getFullYear();
+  const m = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const d = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  return `${y}-${m}-${d}`;
 }
 
 
@@ -24,22 +65,27 @@ document.querySelectorAll(
   "nav button"
 ).forEach(button => {
 
-  button.addEventListener("click", () => {
+  button.addEventListener(
+    "click",
+    () => {
 
-    const page = button.dataset.page;
+      const page =
+        button.dataset.page;
 
-    document.querySelectorAll(
-      ".page"
-    ).forEach(p => {
-      p.classList.remove("active");
-    });
+      document.querySelectorAll(
+        ".page"
+      ).forEach(p => {
+        p.classList.remove("active");
+      });
 
-    document.getElementById(
-      page
-    ).classList.add("active");
+      document.getElementById(
+        page
+      ).classList.add("active");
 
-    renderAll();
-  });
+      renderAll();
+
+    }
+  );
 
 });
 
@@ -48,78 +94,132 @@ document.querySelectorAll(
    タイマー
 ========================= */
 
-let timerStart = null;
-let timerSubject = null;
+function getActiveTimer() {
+
+  return data.activeTimer;
+}
+
 
 document.getElementById(
   "startTimer"
-).addEventListener("click", () => {
+).addEventListener(
+  "click",
+  () => {
 
-  if (timerStart !== null) return;
+    if (data.activeTimer) {
 
-  timerSubject =
-    document.getElementById(
-      "timerSubject"
-    ).value;
+      alert("すでにタイマーが動いています。");
 
-  timerStart = Date.now();
+      return;
+    }
 
-  updateTimer();
-});
+    const subject =
+      document.getElementById(
+        "timerSubject"
+      ).value;
+
+    data.activeTimer = {
+
+      subject: subject,
+
+      start:
+        Date.now()
+
+    };
+
+    save();
+
+    updateTimer();
+
+  }
+);
 
 
 document.getElementById(
   "stopTimer"
-).addEventListener("click", () => {
+).addEventListener(
+  "click",
+  () => {
 
-  if (timerStart === null) return;
+    if (!data.activeTimer) {
 
-  const end = Date.now();
+      alert("タイマーは動いていません。");
 
-  const duration =
-    Math.floor(
-      (end - timerStart) / 1000
-    );
+      return;
+    }
 
-  data.records.push({
+    const end =
+      Date.now();
 
-    id: crypto.randomUUID(),
+    const start =
+      data.activeTimer.start;
 
-    subject: timerSubject,
+    const duration =
+      Math.max(
+        0,
+        Math.floor(
+          (end - start) / 1000
+        )
+      );
 
-    start: timerStart,
+    data.records.push({
 
-    end: end,
+      id: createId(),
 
-    duration: duration,
+      subject:
+        data.activeTimer.subject,
 
-    date:
-      new Date()
-        .toISOString()
-        .slice(0, 10)
+      start: start,
 
-  });
+      end: end,
 
-  save();
+      duration: duration,
 
-  timerStart = null;
-  timerSubject = null;
+      date:
+        getLocalDate(
+          new Date(end)
+        )
 
-  document.getElementById(
-    "timerDisplay"
-  ).textContent = "00:00:00";
+    });
 
-  renderAll();
-});
+    data.activeTimer = null;
+
+    save();
+
+    document.getElementById(
+      "timerDisplay"
+    ).textContent =
+      "00:00:00";
+
+    document.getElementById(
+      "timerStatus"
+    ).textContent =
+      "記録しました。";
+
+    renderAll();
+
+  }
+);
 
 
 function updateTimer() {
 
-  if (timerStart === null) return;
+  if (!data.activeTimer) {
+
+    document.getElementById(
+      "timerDisplay"
+    ).textContent =
+      "00:00:00";
+
+    return;
+  }
 
   const seconds =
     Math.floor(
-      (Date.now() - timerStart) / 1000
+      (
+        Date.now() -
+        data.activeTimer.start
+      ) / 1000
     );
 
   document.getElementById(
@@ -127,14 +227,25 @@ function updateTimer() {
   ).textContent =
     formatTime(seconds);
 
-  setTimeout(updateTimer, 1000);
+  document.getElementById(
+    "timerStatus"
+  ).textContent =
+    `${data.activeTimer.subject}を計測中`;
+
+  setTimeout(
+    updateTimer,
+    1000
+  );
+
 }
 
 
 function formatTime(seconds) {
 
   const h =
-    Math.floor(seconds / 3600);
+    Math.floor(
+      seconds / 3600
+    );
 
   const m =
     Math.floor(
@@ -150,9 +261,14 @@ function formatTime(seconds) {
     s
   ]
     .map(
-      x => String(x).padStart(2, "0")
+      x =>
+        String(x).padStart(
+          2,
+          "0"
+        )
     )
     .join(":");
+
 }
 
 
@@ -162,62 +278,162 @@ function formatTime(seconds) {
 
 document.getElementById(
   "addBook"
-).addEventListener("click", () => {
+).addEventListener(
+  "click",
+  () => {
 
-  const name =
+    const name =
+      document.getElementById(
+        "bookName"
+      ).value.trim();
+
+    const subject =
+      document.getElementById(
+        "bookSubject"
+      ).value;
+
+    const count =
+      Number(
+        document.getElementById(
+          "problemCount"
+        ).value
+      );
+
+    if (!name || count < 1) {
+
+      alert(
+        "参考書名と大問数を入力してください。"
+      );
+
+      return;
+    }
+
+    data.books.push({
+
+      id: createId(),
+
+      name: name,
+
+      subject: subject,
+
+      problems:
+        Array.from(
+          {
+            length: count
+          },
+          (_, i) => ({
+
+            number: i + 1,
+
+            done: false
+
+          })
+        )
+
+    });
+
+    save();
+
     document.getElementById(
       "bookName"
-    ).value.trim();
+    ).value = "";
 
-  const subject =
     document.getElementById(
-      "bookSubject"
-    ).value;
+      "problemCount"
+    ).value = "";
 
-  const count =
-    Number(
-      document.getElementById(
-        "problemCount"
-      ).value
+    renderAll();
+
+  }
+);
+
+
+/* =========================
+   参考書編集
+========================= */
+
+function editBook(id) {
+
+  const book =
+    data.books.find(
+      b => b.id === id
     );
 
-  if (!name || !count) {
-    alert("参考書名と大問数を入力してください");
+  if (!book) return;
+
+  const newName =
+    prompt(
+      "参考書名を変更",
+      book.name
+    );
+
+  if (
+    newName === null ||
+    !newName.trim()
+  ) {
     return;
   }
 
-  data.books.push({
-
-    id: crypto.randomUUID(),
-
-    name,
-
-    subject,
-
-    problems:
-      Array.from(
-        { length: count },
-        (_, i) => ({
-          number: i + 1,
-          done: false
-        })
-      )
-
-  });
+  book.name =
+    newName.trim();
 
   save();
 
-  document.getElementById(
-    "bookName"
-  ).value = "";
+  renderAll();
 
-  document.getElementById(
-    "problemCount"
-  ).value = "";
+}
 
-  renderBooks();
-});
 
+/* =========================
+   参考書削除
+========================= */
+
+function deleteBook(id) {
+
+  const book =
+    data.books.find(
+      b => b.id === id
+    );
+
+  if (!book) return;
+
+  const ok =
+    confirm(
+      `「${book.name}」を削除しますか？`
+    );
+
+  if (!ok) return;
+
+  data.books =
+    data.books.filter(
+      b => b.id !== id
+    );
+
+  /* この参考書を使っている計画から
+     参考書指定を外す */
+
+  data.plans.forEach(
+    plan => {
+
+      if (
+        plan.bookId === id
+      ) {
+        plan.bookId = "";
+      }
+
+    }
+  );
+
+  save();
+
+  renderAll();
+
+}
+
+
+/* =========================
+   参考書表示
+========================= */
 
 function renderBooks() {
 
@@ -228,148 +444,374 @@ function renderBooks() {
 
   container.innerHTML = "";
 
-  data.books.forEach(book => {
+  if (data.books.length === 0) {
 
-    const done =
-      book.problems.filter(
-        p => p.done
-      ).length;
+    container.innerHTML =
+      `<div class="empty">
+        まだ参考書がありません。
+      </div>`;
 
-    const percent =
-      Math.round(
-        done /
-        book.problems.length *
-        100
+    return;
+  }
+
+  data.books.forEach(
+    book => {
+
+      const done =
+        book.problems.filter(
+          p => p.done
+        ).length;
+
+      const total =
+        book.problems.length;
+
+      const percent =
+        total === 0
+          ? 0
+          : Math.round(
+              done / total * 100
+            );
+
+      const div =
+        document.createElement(
+          "div"
+        );
+
+      div.className =
+        "book";
+
+      div.innerHTML = `
+
+        <h3>
+          ${escapeHTML(book.name)}
+        </h3>
+
+        <p>
+          ${escapeHTML(book.subject)}
+          ・
+          ${done}/${total}
+          (${percent}%)
+        </p>
+
+        <div class="progress">
+          <div
+            class="progress-bar"
+            style="width:${percent}%">
+          </div>
+        </div>
+
+        <div class="action-row">
+
+          <button
+            class="secondary"
+            onclick="editBook('${book.id}')">
+            ✏️ 編集
+          </button>
+
+          <button
+            class="danger"
+            onclick="deleteBook('${book.id}')">
+            🗑️ 削除
+          </button>
+
+        </div>
+
+        <div class="problems">
+
+          ${book.problems
+            .map(
+              p => `
+
+              <span
+                class="problem ${
+                  p.done
+                    ? "done"
+                    : ""
+                }"
+                data-book="${book.id}"
+                data-problem="${p.number}">
+
+                ${p.number}
+
+              </span>
+
+            `
+            )
+            .join("")}
+
+        </div>
+
+      `;
+
+      container.appendChild(
+        div
       );
 
-    const div =
-      document.createElement("div");
-
-    div.className = "book";
-
-    div.innerHTML = `
-
-      <h3>
-        ${escapeHTML(book.name)}
-      </h3>
-
-      <p>
-        ${book.subject}
-       　
-        ${done}/${book.problems.length}
-        (${percent}%)
-      </p>
-
-      <div class="progress">
-        <div
-          class="progress-bar"
-          style="width:${percent}%">
-        </div>
-      </div>
-
-      <div class="problems">
-        ${book.problems.map(p => `
-
-          <span
-            class="problem ${p.done ? "done" : ""}"
-            data-book="${book.id}"
-            data-problem="${p.number}">
-
-            ${p.number}
-
-          </span>
-
-        `).join("")}
-
-      </div>
-    `;
-
-    container.appendChild(div);
-  });
+    }
+  );
 
 
   document.querySelectorAll(
     ".problem"
-  ).forEach(problem => {
+  ).forEach(
+    problem => {
 
-    problem.addEventListener(
-      "click",
-      () => {
+      problem.addEventListener(
+        "click",
+        () => {
 
-        const book =
-          data.books.find(
-            b =>
-              b.id ===
-              problem.dataset.book
-          );
+          const book =
+            data.books.find(
+              b =>
+                b.id ===
+                problem.dataset.book
+            );
 
-        const p =
-          book.problems.find(
-            x =>
-              x.number ===
-              Number(
-                problem.dataset.problem
-              )
-          );
+          if (!book) return;
 
-        p.done = !p.done;
+          const p =
+            book.problems.find(
+              x =>
+                x.number ===
+                Number(
+                  problem.dataset.problem
+                )
+            );
 
-        save();
+          if (!p) return;
 
-        renderBooks();
-      }
-    );
+          p.done =
+            !p.done;
 
-  });
+          save();
+
+          renderAll();
+
+        }
+      );
+
+    }
+  );
 
 }
 
 
 /* =========================
-   学習計画
+   計画の参考書選択
+========================= */
+
+function renderBookSelect() {
+
+  const select =
+    document.getElementById(
+      "planBook"
+    );
+
+  const current =
+    select.value;
+
+  select.innerHTML =
+    `<option value="">
+      参考書なし
+    </option>`;
+
+  data.books.forEach(
+    book => {
+
+      const option =
+        document.createElement(
+          "option"
+        );
+
+      option.value =
+        book.id;
+
+      option.textContent =
+        `${book.subject}：${book.name}`;
+
+      select.appendChild(
+        option
+      );
+
+    }
+  );
+
+  if (
+    data.books.some(
+      b => b.id === current
+    )
+  ) {
+
+    select.value =
+      current;
+
+  }
+
+}
+
+
+/* =========================
+   学習計画追加
 ========================= */
 
 document.getElementById(
   "addPlan"
-).addEventListener("click", () => {
+).addEventListener(
+  "click",
+  () => {
 
-  data.plans.push({
-
-    id: crypto.randomUUID(),
-
-    weekday:
+    const weekday =
       Number(
         document.getElementById(
           "planDay"
         ).value
-      ),
+      );
 
-    subject:
+    const subject =
       document.getElementById(
         "planSubject"
-      ).value,
+      ).value;
 
-    minutes:
+    const bookId =
+      document.getElementById(
+        "planBook"
+      ).value;
+
+    const minutes =
       Number(
         document.getElementById(
           "planMinutes"
         ).value
-      ) || 0,
+      ) || 0;
 
-    problems:
+    const problems =
       Number(
         document.getElementById(
           "planProblems"
         ).value
-      ) || 0
+      ) || 0;
 
-  });
+    if (
+      minutes === 0 &&
+      problems === 0
+    ) {
+
+      alert(
+        "目標時間または大問数を入力してください。"
+      );
+
+      return;
+    }
+
+    data.plans.push({
+
+      id: createId(),
+
+      weekday,
+
+      subject,
+
+      bookId,
+
+      minutes,
+
+      problems
+
+    });
+
+    save();
+
+    document.getElementById(
+      "planMinutes"
+    ).value = "";
+
+    document.getElementById(
+      "planProblems"
+    ).value = "";
+
+    renderAll();
+
+  }
+);
+
+
+/* =========================
+   計画編集
+========================= */
+
+function editPlan(id) {
+
+  const plan =
+    data.plans.find(
+      p => p.id === id
+    );
+
+  if (!plan) return;
+
+  const minutes =
+    prompt(
+      "目標時間（分）",
+      plan.minutes
+    );
+
+  if (minutes === null) return;
+
+  const problems =
+    prompt(
+      "大問数",
+      plan.problems
+    );
+
+  if (problems === null) return;
+
+  plan.minutes =
+    Number(minutes) || 0;
+
+  plan.problems =
+    Number(problems) || 0;
 
   save();
 
-  renderPlans();
-});
+  renderAll();
 
+}
+
+
+/* =========================
+   計画削除
+========================= */
+
+function deletePlan(id) {
+
+  const plan =
+    data.plans.find(
+      p => p.id === id
+    );
+
+  if (!plan) return;
+
+  const ok =
+    confirm(
+      "この学習計画を削除しますか？"
+    );
+
+  if (!ok) return;
+
+  data.plans =
+    data.plans.filter(
+      p => p.id !== id
+    );
+
+  save();
+
+  renderAll();
+
+}
+
+
+/* =========================
+   計画表示
+========================= */
 
 function renderPlans() {
 
@@ -390,39 +832,90 @@ function renderPlans() {
 
   container.innerHTML = "";
 
-  data.plans.forEach(plan => {
+  if (data.plans.length === 0) {
 
-    const div =
-      document.createElement("div");
+    container.innerHTML =
+      `<div class="empty">
+        まだ学習計画がありません。
+      </div>`;
 
-    div.className = "card";
+    return;
+  }
 
-    div.innerHTML = `
+  data.plans.forEach(
+    plan => {
 
-      <h3>
-        ${names[plan.weekday]}
-      </h3>
+      const book =
+        data.books.find(
+          b =>
+            b.id ===
+            plan.bookId
+        );
 
-      <p>
-        ${plan.subject}
-      </p>
+      const div =
+        document.createElement(
+          "div"
+        );
 
-      <p>
-        ${plan.minutes}分
-        ・
-        大問${plan.problems}個
-      </p>
+      div.className =
+        "plan-card";
 
-    `;
+      div.innerHTML = `
 
-    container.appendChild(div);
+        <h3>
+          ${names[plan.weekday]}
+        </h3>
 
-  });
+        <p>
+          <strong>
+            ${escapeHTML(plan.subject)}
+          </strong>
+        </p>
+
+        ${
+          book
+            ? `<div class="plan-book">
+                📚 ${escapeHTML(book.name)}
+              </div>`
+            : ""
+        }
+
+        <p>
+          ⏱ ${plan.minutes}分
+          ・
+          📝 大問${plan.problems}個
+        </p>
+
+        <div class="action-row">
+
+          <button
+            class="secondary"
+            onclick="editPlan('${plan.id}')">
+            ✏️ 編集
+          </button>
+
+          <button
+            class="danger"
+            onclick="deletePlan('${plan.id}')">
+            🗑️ 削除
+          </button>
+
+        </div>
+
+      `;
+
+      container.appendChild(
+        div
+      );
+
+    }
+  );
+
 }
 
 
 /* =========================
-   今日の学習
+   ホーム
 ========================= */
 
 function renderHome() {
@@ -443,40 +936,71 @@ function renderHome() {
 
   container.innerHTML = "";
 
-  plans.forEach(plan => {
+  if (plans.length === 0) {
 
-    const div =
-      document.createElement("div");
+    container.innerHTML =
+      `<div class="card empty">
+        今日の学習計画はありません。
+      </div>`;
 
-    div.className = "card";
+  } else {
 
-    div.innerHTML = `
+    plans.forEach(
+      plan => {
 
-      <h3>
-        ${plan.subject}
-      </h3>
+        const book =
+          data.books.find(
+            b =>
+              b.id ===
+              plan.bookId
+          );
 
-      <p>
-        目標：
-        ${plan.minutes}分
-      </p>
+        const div =
+          document.createElement(
+            "div"
+          );
 
-      <p>
-        大問：
-        ${plan.problems}個
-      </p>
+        div.className =
+          "card";
 
-    `;
+        div.innerHTML = `
 
-    container.appendChild(div);
+          <h3>
+            ${escapeHTML(plan.subject)}
+          </h3>
 
-  });
+          ${
+            book
+              ? `<div class="plan-book">
+                  📚 ${escapeHTML(book.name)}
+                </div>`
+              : ""
+          }
+
+          <p>
+            ⏱ 目標：
+            ${plan.minutes}分
+          </p>
+
+          <p>
+            📝 大問：
+            ${plan.problems}個
+          </p>
+
+        `;
+
+        container.appendChild(
+          div
+        );
+
+      }
+    );
+
+  }
 
 
   const todayString =
-    new Date()
-      .toISOString()
-      .slice(0, 10);
+    getLocalDate();
 
   const total =
     data.records
@@ -493,89 +1017,216 @@ function renderHome() {
   document.getElementById(
     "todayTotal"
   ).textContent =
-    Math.floor(total / 60)
-    + "分";
+    formatMinutes(total);
 
 }
 
 
 /* =========================
-   統計
+   分析
 ========================= */
 
+function getDateDaysAgo(days) {
+
+  const date =
+    new Date();
+
+  date.setDate(
+    date.getDate() - days
+  );
+
+  return getLocalDate(date);
+
+}
+
+
+function getTotalSecondsSince(days) {
+
+  const startDate =
+    getDateDaysAgo(days);
+
+  return data.records
+    .filter(
+      record =>
+        record.date >= startDate
+    )
+    .reduce(
+      (sum, record) =>
+        sum + record.duration,
+      0
+    );
+
+}
+
+
+function formatMinutes(seconds) {
+
+  return (
+    Math.floor(
+      seconds / 60
+    ) + "分"
+  );
+
+}
+
+
 function renderStats() {
-
-  const result = {};
-
-  data.records.forEach(record => {
-
-    result[record.subject] =
-      (result[record.subject] || 0)
-      + record.duration;
-
-  });
 
   const container =
     document.getElementById(
       "statsList"
     );
 
-  container.innerHTML = "";
+  const todaySeconds =
+    data.records
+      .filter(
+        r =>
+          r.date ===
+          getLocalDate()
+      )
+      .reduce(
+        (sum, r) =>
+          sum + r.duration,
+        0
+      );
 
-  Object.entries(result)
+  const weekSeconds =
+    getTotalSecondsSince(6);
+
+  const monthSeconds =
+    getTotalSecondsSince(29);
+
+  const subjects = {};
+
+  data.records.forEach(
+    record => {
+
+      subjects[record.subject] =
+        (
+          subjects[record.subject]
+          || 0
+        ) + record.duration;
+
+    }
+  );
+
+  let subjectHTML = "";
+
+  Object.entries(subjects)
     .forEach(
       ([subject, seconds]) => {
 
-        const div =
-          document.createElement(
-            "div"
-          );
+        subjectHTML += `
 
-        div.className = "card";
+          <div class="card">
 
-        div.innerHTML = `
+            <h3>
+              ${escapeHTML(subject)}
+            </h3>
 
-          <h3>
-            ${subject}
-          </h3>
+            <p>
+              ${formatMinutes(seconds)}
+            </p>
 
-          <p>
-            ${Math.floor(seconds / 60)}
-            分
-          </p>
+          </div>
 
         `;
 
-        container.appendChild(div);
-
       }
     );
+
+  if (!subjectHTML) {
+
+    subjectHTML =
+      `<div class="empty">
+        まだ学習記録がありません。
+      </div>`;
+
+  }
+
+  container.innerHTML = `
+
+    <div class="stat-grid">
+
+      <div class="stat-box">
+        今日
+        <strong>
+          ${formatMinutes(todaySeconds)}
+        </strong>
+      </div>
+
+      <div class="stat-box">
+        今週
+        <strong>
+          ${formatMinutes(weekSeconds)}
+        </strong>
+      </div>
+
+      <div class="stat-box">
+        今月
+        <strong>
+          ${formatMinutes(monthSeconds)}
+        </strong>
+      </div>
+
+      <div class="stat-box">
+        記録数
+        <strong>
+          ${data.records.length}
+        </strong>
+      </div>
+
+    </div>
+
+    <h3>
+      科目別
+    </h3>
+
+    ${subjectHTML}
+
+  `;
 
 }
 
 
 /* =========================
-   共通
+   HTMLエスケープ
 ========================= */
 
 function escapeHTML(text) {
 
   const div =
-    document.createElement("div");
+    document.createElement(
+      "div"
+    );
 
-  div.textContent = text;
+  div.textContent =
+    String(text);
 
   return div.innerHTML;
+
 }
 
+
+/* =========================
+   初期表示
+========================= */
 
 function renderAll() {
 
+  renderBookSelect();
+
   renderHome();
+
   renderBooks();
+
   renderPlans();
+
   renderStats();
 
+  updateTimer();
+
 }
+
 
 renderAll();
