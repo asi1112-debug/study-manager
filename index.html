@@ -2,9 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#4f46e5">
 
   <link rel="manifest" href="manifest.json">
@@ -24,13 +22,13 @@
   <!-- ホーム -->
   <section id="home" class="page active">
 
-    <h2>今日の学習</h2>
+    <h2>🏠 今日の学習</h2>
 
     <div id="todayPlans"></div>
 
     <div class="card">
       <h3>今日の勉強時間</h3>
-      <p id="todayTotal">0分</p>
+      <p id="todayTotal" class="big-number">0分</p>
     </div>
 
   </section>
@@ -41,18 +39,26 @@
 
     <h2>⏱ 学習タイマー</h2>
 
-    <select id="timerSubject">
-      <option value="数学">数学</option>
-      <option value="英語">英語</option>
-      <option value="国語">国語</option>
-      <option value="理科">理科</option>
-      <option value="社会">社会</option>
-    </select>
+    <div class="card">
 
-    <div id="timerDisplay">00:00:00</div>
+      <label>科目</label>
 
-    <button id="startTimer">▶ 開始</button>
-    <button id="stopTimer">■ 終了</button>
+      <select id="timerSubject">
+        <option value="数学">数学</option>
+        <option value="英語">英語</option>
+        <option value="国語">国語</option>
+        <option value="理科">理科</option>
+        <option value="社会">社会</option>
+      </select>
+
+      <div id="timerDisplay">00:00:00</div>
+
+      <button id="startTimer">▶ 開始</button>
+      <button id="stopTimer" class="danger">■ 終了</button>
+
+      <p id="timerStatus" class="muted"></p>
+
+    </div>
 
   </section>
 
@@ -64,20 +70,23 @@
 
     <div class="card">
 
-      <input id="bookName"
-             placeholder="参考書名">
+      <input
+        id="bookName"
+        placeholder="参考書名">
 
       <select id="bookSubject">
-        <option>数学</option>
-        <option>英語</option>
-        <option>国語</option>
-        <option>理科</option>
-        <option>社会</option>
+        <option value="数学">数学</option>
+        <option value="英語">英語</option>
+        <option value="国語">国語</option>
+        <option value="理科">理科</option>
+        <option value="社会">社会</option>
       </select>
 
-      <input id="problemCount"
-             type="number"
-             placeholder="大問数">
+      <input
+        id="problemCount"
+        type="number"
+        min="1"
+        placeholder="大問数">
 
       <button id="addBook">
         参考書を登録
@@ -108,20 +117,28 @@
       </select>
 
       <select id="planSubject">
-        <option>数学</option>
-        <option>英語</option>
-        <option>国語</option>
-        <option>理科</option>
-        <option>社会</option>
+        <option value="数学">数学</option>
+        <option value="英語">英語</option>
+        <option value="国語">国語</option>
+        <option value="理科">理科</option>
+        <option value="社会">社会</option>
       </select>
 
-      <input id="planMinutes"
-             type="number"
-             placeholder="目標時間（分）">
+      <select id="planBook">
+        <option value="">参考書なし</option>
+      </select>
 
-      <input id="planProblems"
-             type="number"
-             placeholder="大問数">
+      <input
+        id="planMinutes"
+        type="number"
+        min="0"
+        placeholder="目標時間（分）">
+
+      <input
+        id="planProblems"
+        type="number"
+        min="0"
+        placeholder="大問数">
 
       <button id="addPlan">
         計画を追加
@@ -156,15 +173,14 @@
 
 </nav>
 
+
 <script src="app.js"></script>
 
 <script>
-
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js");
 }
-
 </script>
 
 </body>
-  </html>
+</html>
