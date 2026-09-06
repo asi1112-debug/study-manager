@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+  <meta name="theme-color" content="#4f46e5">
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+
+  <title>Study Manager</title>
+</head>
+
+<body>
+
+<header>
+  <h1>📚 Study Manager</h1>
+</header>
+
+<main>
+
+  <!-- ホーム -->
+  <section id="home" class="page active">
+
+    <h2>今日の学習</h2>
+
+    <div id="todayPlans"></div>
+
+    <div class="card">
+      <h3>今日の勉強時間</h3>
+      <p id="todayTotal">0分</p>
+    </div>
+
+  </section>
+
+
+  <!-- タイマー -->
+  <section id="timer" class="page">
+
+    <h2>⏱ 学習タイマー</h2>
+
+    <select id="timerSubject">
+      <option value="数学">数学</option>
+      <option value="英語">英語</option>
+      <option value="国語">国語</option>
+      <option value="理科">理科</option>
+      <option value="社会">社会</option>
+    </select>
+
+    <div id="timerDisplay">00:00:00</div>
+
+    <button id="startTimer">▶ 開始</button>
+    <button id="stopTimer">■ 終了</button>
+
+  </section>
+
+
+  <!-- 参考書 -->
+  <section id="books" class="page">
+
+    <h2>📚 参考書</h2>
+
+    <div class="card">
+
+      <input id="bookName"
+             placeholder="参考書名">
+
+      <select id="bookSubject">
+        <option>数学</option>
+        <option>英語</option>
+        <option>国語</option>
+        <option>理科</option>
+        <option>社会</option>
+      </select>
+
+      <input id="problemCount"
+             type="number"
+             placeholder="大問数">
+
+      <button id="addBook">
+        参考書を登録
+      </button>
+
+    </div>
+
+    <div id="bookList"></div>
+
+  </section>
+
+
+  <!-- 計画 -->
+  <section id="plans" class="page">
+
+    <h2>📅 学習計画</h2>
+
+    <div class="card">
+
+      <select id="planDay">
+        <option value="1">月曜日</option>
+        <option value="2">火曜日</option>
+        <option value="3">水曜日</option>
+        <option value="4">木曜日</option>
+        <option value="5">金曜日</option>
+        <option value="6">土曜日</option>
+        <option value="0">日曜日</option>
+      </select>
+
+      <select id="planSubject">
+        <option>数学</option>
+        <option>英語</option>
+        <option>国語</option>
+        <option>理科</option>
+        <option>社会</option>
+      </select>
+
+      <input id="planMinutes"
+             type="number"
+             placeholder="目標時間（分）">
+
+      <input id="planProblems"
+             type="number"
+             placeholder="大問数">
+
+      <button id="addPlan">
+        計画を追加
+      </button>
+
+    </div>
+
+    <div id="planList"></div>
+
+  </section>
+
+
+  <!-- 分析 -->
+  <section id="stats" class="page">
+
+    <h2>📊 学習記録</h2>
+
+    <div id="statsList"></div>
+
+  </section>
+
+</main>
+
+
+<nav>
+
+  <button data-page="home">🏠</button>
+  <button data-page="timer">⏱</button>
+  <button data-page="books">📚</button>
+  <button data-page="plans">📅</button>
+  <button data-page="stats">📊</button>
+
+</nav>
+
+<script src="app.js"></script>
+
+<script>
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+
+</script>
+
+</body>
+  </html>
