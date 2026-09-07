@@ -655,12 +655,205 @@ function renderBooks() {
       container.appendChild(
         div
       );
+function renderHome() {
 
-    }
-  );
+  const today =
+    new Date().getDay();
+
+  const todayString =
+    getLocalDate();
+
+  const plans =
+    data.plans.filter(
+      p =>
+        p.weekday === today
+    );
+
+  const container =
+    document.getElementById(
+      "todayPlans"
+    );
+
+  container.innerHTML = "";
+
+  if (
+    plans.length === 0
+  ) {
+
+    container.innerHTML =
+      `<div class="card empty">
+        今日の学習計画はありません。
+      </div>`;
+
+  } else {
+
+    plans.forEach(
+      plan => {
+
+        const book =
+          data.books.find(
+            b =>
+              b.id ===
+              plan.bookId
+          );
+
+        const progress =
+          getDailyProblemProgress(
+            plan,
+            todayString
+          );
+
+        const div =
+          document.createElement(
+            "div"
+          );
+
+        div.className =
+          "card today-task";
+
+        let problemsHTML = "";
+
+        /*
+          大問の目標がある場合
+        */
+
+        if (
+          book &&
+          plan.problems > 0
+        ) {
+
+          const done =
+            progress.done;
+
+          const target =
+            plan.problems;
+
+          const remaining =
+            progress.remaining;
+
+          /*
+            完了数を必ず表示
+          */
+
+          problemsHTML += `
+
+            <p>
+              📝 大問進捗：
+              <strong>
+                ${done} / ${target}個完了
+              </strong>
+            </p>
+
+          `;
+
+
+          /*
+            残りの大問を表示
+          */
+
+          if (
+            remaining.length > 0
+          ) {
+
+            problemsHTML += `
+
+              <p>
+                👉 残り：
+                <strong>
+                  ${
+                    remaining
+                      .map(
+                        p =>
+                          `大問${p.number}`
+                      )
+                      .join("・")
+                  }
+                </strong>
+              </p>
+
+            `;
+
+          } else {
+
+            problemsHTML += `
+
+              <p>
+                🎉
+                <strong>
+                  今日の大問目標達成！
+                </strong>
+              </p>
+
+            `;
+
+          }
+
+        }
+
+
+        div.innerHTML = `
+
+          <h3>
+            ${escapeHTML(plan.subject)}
+          </h3>
+
+          ${
+            book
+              ? `
+                <div class="plan-book">
+                  📚 ${escapeHTML(book.name)}
+                </div>
+              `
+              : ""
+          }
+
+          <p>
+            ⏱ 目標：
+            ${plan.minutes}分
+          </p>
+
+          <p>
+            📝 大問目標：
+            ${plan.problems}個
+          </p>
+
+          ${problemsHTML}
+
+        `;
+
+        container.appendChild(
+          div
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+    今日の勉強時間
+  */
+
+  const total =
+    data.records
+      .filter(
+        r =>
+          r.date ===
+          todayString
+      )
+      .reduce(
+        (sum, r) =>
+          sum + r.duration,
+        0
+      );
+
+  document.getElementById(
+    "todayTotal"
+  ).textContent =
+    formatMinutes(total);
 
 }
-
 
 /* =========================
    計画用参考書一覧
