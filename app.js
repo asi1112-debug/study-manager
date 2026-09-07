@@ -66,7 +66,7 @@ function save() {
 
 
 /* =========================
-   ID作成
+   ID
 ========================= */
 
 function createId() {
@@ -142,9 +142,7 @@ document
         document
           .querySelectorAll(".page")
           .forEach(p => {
-            p.classList.remove(
-              "active"
-            );
+            p.classList.remove("active");
           });
 
         document
@@ -535,7 +533,7 @@ function deleteBook(id) {
 
 
 /* =========================
-   大問完了切り替え
+   大問完了
 ========================= */
 
 function toggleProblem(
@@ -766,7 +764,7 @@ function renderBookSelect() {
 
 
 /* =========================
-   今日の目標大問を取得
+   今日の大問目標
 ========================= */
 
 function getDailyTargetProblems(
@@ -797,11 +795,6 @@ function getDailyTargetProblems(
     `${dateString}_${plan.id}`;
 
 
-  /*
-    今日の目標がすでに
-    保存されている場合
-  */
-
   if (
     Array.isArray(
       data.dailyTargets[key]
@@ -821,10 +814,6 @@ function getDailyTargetProblems(
 
   }
 
-
-  /*
-    今日の目標を作成
-  */
 
   const targets =
     book.problems
@@ -847,14 +836,13 @@ function getDailyTargetProblems(
 
   save();
 
-
   return targets;
 
 }
 
 
 /* =========================
-   今日の大問進捗
+   大問進捗
 ========================= */
 
 function getDailyProblemProgress(
@@ -868,10 +856,6 @@ function getDailyProblemProgress(
       dateString
     );
 
-
-  /*
-    目標が存在しない場合
-  */
 
   if (
     targets.length === 0
@@ -1089,11 +1073,6 @@ function editPlan(id) {
     Number(problems) || 0;
 
 
-  /*
-    計画を変更したので
-    今日の目標を再設定
-  */
-
   Object.keys(
     data.dailyTargets
   ).forEach(
@@ -1163,6 +1142,52 @@ function deletePlan(id) {
   save();
 
   renderAll();
+
+}
+
+
+/* =========================
+   今日の実際の勉強時間
+========================= */
+
+function getTodaySubjectSeconds(
+  subject,
+  dateString = getLocalDate()
+) {
+
+  return data.records
+    .filter(
+      record =>
+        record.date === dateString &&
+        record.subject === subject
+    )
+    .reduce(
+      (sum, record) =>
+        sum + record.duration,
+      0
+    );
+
+}
+
+
+/* =========================
+   今日の全勉強時間
+========================= */
+
+function getTodayTotalSeconds(
+  dateString = getLocalDate()
+) {
+
+  return data.records
+    .filter(
+      record =>
+        record.date === dateString
+    )
+    .reduce(
+      (sum, record) =>
+        sum + record.duration,
+      0
+    );
 
 }
 
@@ -1397,40 +1422,72 @@ function renderHome() {
           );
 
 
-        const progress =
-          getDailyProblemProgress(
-            plan,
+        const actualSeconds =
+          getTodaySubjectSeconds(
+            plan.subject,
             todayString
           );
 
 
-        const div =
-          document.createElement(
-            "div"
+        const actualMinutes =
+          Math.floor(
+            actualSeconds / 60
           );
 
-        div.className =
-          "card today-task";
+
+        let achievementText = "";
+
+
+        if (
+          plan.minutes > 0
+        ) {
+
+          const percent =
+            Math.min(
+              100,
+              Math.round(
+                actualMinutes /
+                plan.minutes *
+                100
+              )
+            );
+
+
+          achievementText = `
+
+            <p>
+              📊 達成率：
+              <strong>
+                ${percent}%
+              </strong>
+            </p>
+
+          `;
+
+        }
 
 
         let problemsHTML = "";
 
-
-        /*
-          大問目標がある場合
-        */
 
         if (
           book &&
           plan.problems > 0
         ) {
 
-          /*
-            まず必ず
-            完了数を表示
-          */
+          const progress =
+            getDailyProblemProgress(
+              plan,
+              todayString
+            );
 
-          problemsHTML += `
+
+          problemsHTML = `
+
+            <p>
+              📝 大問目標：
+              ${plan.problems}個
+            </p>
 
             <p>
               📝 大問進捗：
@@ -1445,72 +1502,10 @@ function renderHome() {
           `;
 
 
-          /*
-            残りの大問
-          */
-
           if (
             progress.remaining.length > 0
           ) {
 
             problemsHTML += `
 
-              <p>
-                👉 残り：
-                <strong>
-                  ${
-                    progress.remaining
-                      .map(
-                        p =>
-                          `大問${p.number}`
-                      )
-                      .join("・")
-                  }
-                </strong>
-              </p>
-
-            `;
-
-          } else {
-
-            problemsHTML += `
-
-              <p>
-                🎉
-                <strong>
-                  今日の大問目標達成！
-                </strong>
-              </p>
-
-            `;
-
-          }
-
-        }
-
-
-        div.innerHTML = `
-
-          <h3>
-            ${escapeHTML(plan.subject)}
-          </h3>
-
-          ${
-            book
-              ? `
-                <div class="plan-book">
-                  📚 ${escapeHTML(book.name)}
-                </div>
-              `
-              : ""
-          }
-
-          <p>
-            ⏱ 目標：
-            ${plan.minutes}分
-          </p>
-
-          <p>
-            📝 大問目標：
-            ${plan.problems}個
-      
+          
