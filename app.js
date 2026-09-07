@@ -1050,7 +1050,7 @@ if (aiBookSearchButton) {
       const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error("検索に失敗しました");
+        throw new Error(`検索に失敗しました（HTTP ${response.status}）`);
       }
 
       const resultData = await response.json();
