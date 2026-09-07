@@ -735,6 +735,269 @@ function renderPlans() {
 
 
 /* =========================
+   タイマー
+========================= */
+
+const startTimerButton =
+  document.getElementById("startTimer");
+
+if (startTimerButton) {
+  startTimerButton.addEventListener("click", () => {
+
+    if (data.activeTimer) {
+      alert("すでにタイマーが動いています。");
+      return;
+    }
+
+    const subjectElement =
+      document.getElementById("timerSubject");
+
+    const subject =
+      subjectElement
+        ? subjectElement.value
+        : "その他";
+
+    data.activeTimer = {
+      subject,
+      start: Date.now()
+    };
+
+    save();
+
+    const status =
+      document.getElementById("timerStatus");
+
+    if (status) {
+      status.textContent = "タイマー作動中";
+    }
+
+    updateTimer();
+  });
+}
+
+
+const stopTimerButton =
+  document.getElementById("stopTimer");
+
+if (stopTimerButton) {
+  stopTimerButton.addEventListener("click", () => {
+
+    if (!data.activeTimer) {
+      alert("タイマーは動いていません。");
+      return;
+    }
+
+    const end = Date.now();
+
+    const duration =
+      Math.max(
+        0,
+        Math.floor(
+          (end - data.activeTimer.start) / 1000
+        )
+      );
+
+    data.records.push({
+      id: createId(),
+      subject: data.activeTimer.subject,
+      start: data.activeTimer.start,
+      end,
+      duration,
+      date: getLocalDate(new Date(end))
+    });
+
+    data.activeTimer = null;
+
+    save();
+
+    const display =
+      document.getElementById("timerDisplay");
+
+    if (display) {
+      display.textContent = "00:00:00";
+    }
+
+    const status =
+      document.getElementById("timerStatus");
+
+    if (status) {
+      status.textContent =
+        "学習時間を記録しました。";
+    }
+
+    renderAll();
+  });
+}
+
+
+function updateTimer() {
+
+  const display =
+    document.getElementById("timerDisplay");
+
+  if (!display) return;
+
+  if (!data.activeTimer) {
+    display.textContent = "00:00:00";
+    return;
+  }
+
+  const elapsed =
+    Math.floor(
+      (Date.now() - data.activeTimer.start) / 1000
+    );
+
+  display.textContent =
+    formatTime(elapsed);
+}
+
+
+/* =========================
+   学習記録・統計
+========================= */
+
+function renderStats() {
+
+  const container =
+    document.getElementById("statsList");
+
+  if (!container) return;
+
+  if (data.records.length === 0) {
+
+    container.innerHTML = `
+      <div class="card">
+        <p>学習記録がありません。</p>
+      </div>
+    `;
+
+    return;
+  }
+
+  const today =
+    getLocalDate();
+
+  const todayRecords =
+    data.records.filter(
+      record => record.date === today
+    );
+
+  const todaySeconds =
+    todayRecords.reduce(
+      (total, record) =>
+        total + Number(record.duration || 0),
+      0
+    );
+
+  const totalSeconds =
+    data.records.reduce(
+      (total, record) =>
+        total + Number(record.duration || 0),
+      0
+    );
+
+  const subjectTotals = {};
+
+  data.records.forEach(record => {
+
+    const subject =
+      record.subject || "その他";
+
+    subjectTotals[subject] =
+      (subjectTotals[subject] || 0) +
+      Number(record.duration || 0);
+  });
+
+  const subjectHTML =
+    Object.entries(subjectTotals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([subject, seconds]) => `
+        <div class="card">
+
+          <h3>
+            ${escapeHTML(subject)}
+          </h3>
+
+          <p>
+            ${formatTime(seconds)}
+          </p>
+
+        </div>
+      `)
+      .join("");
+
+  const recordHTML =
+    [...data.records]
+      .sort(
+        (a, b) =>
+          Number(b.start || 0) -
+          Number(a.start || 0)
+      )
+      .map(record => {
+
+        const duration =
+          Number(record.duration || 0);
+
+        const date =
+          record.date || "";
+
+        return `
+          <div class="card">
+
+            <h3>
+              ${escapeHTML(
+                record.subject || "その他"
+              )}
+            </h3>
+
+            <p>
+              📅 ${escapeHTML(date)}
+            </p>
+
+            <p>
+              ⏱ ${formatTime(duration)}
+            </p>
+
+          </div>
+        `;
+      })
+      .join("");
+
+  container.innerHTML = `
+
+    <div class="card">
+
+      <h3>今日の学習時間</h3>
+
+      <p class="big-number">
+        ${Math.floor(todaySeconds / 60)}分
+      </p>
+
+    </div>
+
+    <div class="card">
+
+      <h3>これまでの学習時間</h3>
+
+      <p class="big-number">
+        ${Math.floor(totalSeconds / 60)}分
+      </p>
+
+    </div>
+
+    <h3>科目別</h3>
+
+    ${subjectHTML}
+
+    <h3>学習記録</h3>
+
+    ${recordHTML}
+
+  `;
+}
+
+
+/* =========================
    全画面更新
 ========================= */
 
