@@ -1042,10 +1042,7 @@ if (aiBookSearchButton) {
     `;
 
     try {
-      const url =
-  "https://openlibrary.org/search.json?q=" +
-  encodeURIComponent(keyword) +
-  "&limit=10";
+     const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(keyword)}&limit=10&fields=title,author_name,publisher,isbn`;
 
       const response = await fetch(url);
 
