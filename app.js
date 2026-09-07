@@ -1,14 +1,30 @@
 const STORAGE_KEY = "studyManagerData";
 
-let data = JSON.parse(
-  localStorage.getItem(STORAGE_KEY)
-) || {
-  books: [],
-  plans: [],
-  records: [],
-  activeTimer: null,
-  dailyTargets: {}
-};
+let data;
+
+try {
+  const saved = localStorage.getItem(STORAGE_KEY);
+
+  data = saved
+    ? JSON.parse(saved)
+    : {
+        books: [],
+        plans: [],
+        records: [],
+        activeTimer: null,
+        dailyTargets: {}
+      };
+} catch (error) {
+  console.error("データ読み込みエラー:", error);
+
+  data = {
+    books: [],
+    plans: [],
+    records: [],
+    activeTimer: null,
+    dailyTargets: {}
+  };
+}
 
 
 /* =========================
@@ -33,13 +49,13 @@ if (!("activeTimer" in data)) {
 
 if (
   !data.dailyTargets ||
-  typeof data.dailyTargets !== "object"
+  typeof data.dailyTargets !== "object" ||
+  Array.isArray(data.dailyTargets)
 ) {
   data.dailyTargets = {};
 }
 
 data.plans.forEach(plan => {
-
   if (!("bookId" in plan)) {
     plan.bookId = "";
   }
@@ -51,17 +67,18 @@ data.plans.forEach(plan => {
   if (!("problems" in plan)) {
     plan.problems = 0;
   }
-
 });
 
 
-function save() {
+/* =========================
+   保存
+========================= */
 
+function save() {
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify(data)
   );
-
 }
 
 
@@ -70,7 +87,6 @@ function save() {
 ========================= */
 
 function createId() {
-
   if (
     typeof crypto !== "undefined" &&
     crypto.randomUUID
@@ -78,8 +94,10 @@ function createId() {
     return crypto.randomUUID();
   }
 
-  return Date.now().toString();
-
+  return (
+    Date.now().toString() +
+    Math.random().toString(36).slice(2)
+  );
 }
 
 
@@ -87,25 +105,18 @@ function createId() {
    日本時間の日付
 ========================= */
 
-function getLocalDate(
-  date = new Date()
-) {
+function getLocalDate(date = new Date()) {
+  const year = date.getFullYear();
 
-  const year =
-    date.getFullYear();
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
 
-  const month =
-    String(
-      date.getMonth() + 1
-    ).padStart(2, "0");
-
-  const day =
-    String(
-      date.getDate()
-    ).padStart(2, "0");
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
-
 }
 
 
@@ -131,94 +142,86 @@ const dayNames = [
 document
   .querySelectorAll("nav button")
   .forEach(button => {
+    button.addEventListener("click", () => {
+      const page = button.dataset.page;
 
-    button.addEventListener(
-      "click",
-      () => {
+      document
+        .querySelectorAll(".page")
+        .forEach(p => {
+          p.classList.remove("active");
+        });
 
-        const page =
-          button.dataset.page;
+      const target =
+        document.getElementById(page);
 
-        document
-          .querySelectorAll(".page")
-          .forEach(p => {
-            p.classList.remove("active");
-          });
-
-        document
-          .getElementById(page)
-          .classList.add("active");
-
-        renderAll();
-
+      if (target) {
+        target.classList.add("active");
       }
-    );
 
+      renderAll();
+    });
   });
 
 
 /* =========================
-   タイマー
+   タイマー開始
 ========================= */
 
-document
-  .getElementById("startTimer")
-  .addEventListener(
+const startTimerButton =
+  document.getElementById("startTimer");
+
+if (startTimerButton) {
+  startTimerButton.addEventListener(
     "click",
     () => {
-
       if (data.activeTimer) {
-
         alert(
           "すでにタイマーが動いています。"
         );
-
         return;
-
       }
 
+      const subjectElement =
+        document.getElementById(
+          "timerSubject"
+        );
+
       const subject =
-        document
-          .getElementById(
-            "timerSubject"
-          )
-          .value;
+        subjectElement
+          ? subjectElement.value
+          : "その他";
 
       data.activeTimer = {
-
         subject,
-
-        start:
-          Date.now()
-
+        start: Date.now()
       };
 
       save();
-
       updateTimer();
-
     }
   );
+}
 
 
-document
-  .getElementById("stopTimer")
-  .addEventListener(
+/* =========================
+   タイマー停止
+========================= */
+
+const stopTimerButton =
+  document.getElementById("stopTimer");
+
+if (stopTimerButton) {
+  stopTimerButton.addEventListener(
     "click",
     () => {
-
       if (!data.activeTimer) {
-
         alert(
           "タイマーは動いていません。"
         );
-
         return;
-
       }
 
-      const end =
-        Date.now();
+      const end = Date.now();
 
       const duration =
         Math.max(
@@ -232,103 +235,108 @@ document
         );
 
       data.records.push({
-
-        id:
-          createId(),
-
+        id: createId(),
         subject:
           data.activeTimer.subject,
-
         start:
           data.activeTimer.start,
-
         end,
-
         duration,
-
         date:
           getLocalDate(
             new Date(end)
           )
-
       });
 
-      data.activeTimer =
-        null;
+      data.activeTimer = null;
 
       save();
 
-      document
-        .getElementById(
+      const display =
+        document.getElementById(
           "timerDisplay"
-        )
-        .textContent =
-        "00:00:00";
+        );
 
-      document
-        .getElementById(
+      if (display) {
+        display.textContent =
+          "00:00:00";
+      }
+
+      const status =
+        document.getElementById(
           "timerStatus"
-        )
-        .textContent =
-        "記録しました。";
+        );
+
+      if (status) {
+        status.textContent =
+          "記録しました。";
+      }
 
       renderAll();
-
     }
   );
+}
 
+
+/* =========================
+   タイマー更新
+========================= */
 
 function updateTimer() {
+  const display =
+    document.getElementById(
+      "timerDisplay"
+    );
+
+  const status =
+    document.getElementById(
+      "timerStatus"
+    );
 
   if (!data.activeTimer) {
-
-    document
-      .getElementById(
-        "timerDisplay"
-      )
-      .textContent =
-      "00:00:00";
+    if (display) {
+      display.textContent =
+        "00:00:00";
+    }
 
     return;
-
   }
 
   const seconds =
-    Math.floor(
-      (
-        Date.now() -
-        data.activeTimer.start
-      ) / 1000
+    Math.max(
+      0,
+      Math.floor(
+        (
+          Date.now() -
+          data.activeTimer.start
+        ) / 1000
+      )
     );
 
-  document
-    .getElementById(
-      "timerDisplay"
-    )
-    .textContent =
-    formatTime(seconds);
+  if (display) {
+    display.textContent =
+      formatTime(seconds);
+  }
 
-  document
-    .getElementById(
-      "timerStatus"
-    )
-    .textContent =
-    `${data.activeTimer.subject}を計測中`;
+  if (status) {
+    status.textContent =
+      `${data.activeTimer.subject}を計測中`;
+  }
 
   setTimeout(
     updateTimer,
     1000
   );
-
 }
 
 
-function formatTime(seconds) {
+/* =========================
+   時間表示
+========================= */
 
+function formatTime(seconds) {
   const hours =
-    Math.floor(
-      seconds / 3600
-    );
+    Math.floor(seconds / 3600);
 
   const minutes =
     Math.floor(
@@ -345,13 +353,10 @@ function formatTime(seconds) {
   ]
     .map(
       value =>
-        String(value).padStart(
-          2,
-          "0"
-        )
+        String(value)
+          .padStart(2, "0")
     )
     .join(":");
-
 }
 
 
@@ -359,94 +364,87 @@ function formatTime(seconds) {
    参考書追加
 ========================= */
 
-document
-  .getElementById("addBook")
-  .addEventListener(
+const addBookButton =
+  document.getElementById(
+    "addBook"
+  );
+
+if (addBookButton) {
+  addBookButton.addEventListener(
     "click",
     () => {
+      const nameElement =
+        document.getElementById(
+          "bookName"
+        );
+
+      const subjectElement =
+        document.getElementById(
+          "bookSubject"
+        );
+
+      const countElement =
+        document.getElementById(
+          "problemCount"
+        );
 
       const name =
-        document
-          .getElementById(
-            "bookName"
-          )
-          .value
-          .trim();
+        nameElement
+          ? nameElement.value.trim()
+          : "";
 
       const subject =
-        document
-          .getElementById(
-            "bookSubject"
-          )
-          .value;
+        subjectElement
+          ? subjectElement.value
+          : "";
 
       const count =
-        Number(
-          document
-            .getElementById(
-              "problemCount"
+        countElement
+          ? Number(
+              countElement.value
             )
-            .value
-        );
+          : 0;
 
       if (
         !name ||
         count < 1
       ) {
-
         alert(
           "参考書名と大問数を入力してください。"
         );
-
         return;
-
       }
 
       data.books.push({
-
-        id:
-          createId(),
-
+        id: createId(),
         name,
-
         subject,
-
         problems:
           Array.from(
             {
               length: count
             },
             (_, index) => ({
-
-              number:
-                index + 1,
-
-              done:
-                false
-
+              number: index + 1,
+              done: false
             })
           )
-
       });
 
       save();
 
-      document
-        .getElementById(
-          "bookName"
-        )
-        .value = "";
+      if (nameElement) {
+        nameElement.value = "";
+      }
 
-      document
-        .getElementById(
-          "problemCount"
-        )
-        .value = "";
+      if (countElement) {
+        countElement.value = "";
+      }
 
       renderAll();
-
     }
   );
+}
 
 
 /* =========================
@@ -454,11 +452,9 @@ document
 ========================= */
 
 function editBook(id) {
-
   const book =
     data.books.find(
-      b =>
-        b.id === id
+      b => b.id === id
     );
 
   if (!book) return;
@@ -480,9 +476,7 @@ function editBook(id) {
     newName.trim();
 
   save();
-
   renderAll();
-
 }
 
 
@@ -491,11 +485,9 @@ function editBook(id) {
 ========================= */
 
 function deleteBook(id) {
-
   const book =
     data.books.find(
-      b =>
-        b.id === id
+      b => b.id === id
     );
 
   if (!book) return;
@@ -509,26 +501,30 @@ function deleteBook(id) {
 
   data.books =
     data.books.filter(
-      b =>
-        b.id !== id
+      b => b.id !== id
     );
 
   data.plans.forEach(
     plan => {
-
-      if (
-        plan.bookId === id
-      ) {
+      if (plan.bookId === id) {
         plan.bookId = "";
       }
-
     }
   );
 
+  Object.keys(
+    data.dailyTargets
+  ).forEach(key => {
+    const target =
+      data.dailyTargets[key];
+
+    if (!Array.isArray(target)) {
+      delete data.dailyTargets[key];
+    }
+  });
+
   save();
-
   renderAll();
-
 }
 
 
@@ -540,14 +536,16 @@ function toggleProblem(
   bookId,
   problemNumber
 ) {
-
   const book =
     data.books.find(
-      b =>
-        b.id === bookId
+      b => b.id === bookId
     );
 
   if (!book) return;
+
+  if (!Array.isArray(book.problems)) {
+    book.problems = [];
+  }
 
   const problem =
     book.problems.find(
@@ -562,9 +560,7 @@ function toggleProblem(
     !problem.done;
 
   save();
-
   renderAll();
-
 }
 
 
@@ -573,136 +569,117 @@ function toggleProblem(
 ========================= */
 
 function renderBooks() {
-
   const container =
     document.getElementById(
       "bookList"
     );
+
+  if (!container) return;
 
   container.innerHTML = "";
 
   if (
     data.books.length === 0
   ) {
-
-    container.innerHTML =
-      `
+    container.innerHTML = `
       <div class="empty">
         まだ参考書がありません。
       </div>
-      `;
+    `;
 
     return;
-
   }
 
-  data.books.forEach(
-    book => {
+  data.books.forEach(book => {
+    if (!Array.isArray(book.problems)) {
+      book.problems = [];
+    }
 
-      const total =
-        book.problems.length;
+    const total =
+      book.problems.length;
 
-      const done =
-        book.problems.filter(
-          p =>
-            p.done
-        ).length;
+    const done =
+      book.problems.filter(
+        p => p.done
+      ).length;
 
-      const percent =
-        total === 0
-          ? 0
-          : Math.round(
-              done /
-              total *
-              100
-            );
+    const percent =
+      total === 0
+        ? 0
+        : Math.round(
+            done /
+            total *
+            100
+          );
 
-      const div =
-        document.createElement(
-          "div"
-        );
-
-      div.className =
-        "book";
-
-      div.innerHTML = `
-
-        <h3>
-          ${escapeHTML(book.name)}
-        </h3>
-
-        <p>
-          ${escapeHTML(book.subject)}
-          ・
-          ${done}/${total}
-          (${percent}%)
-        </p>
-
-        <div class="progress">
-
-          <div
-            class="progress-bar"
-            style="width:${percent}%">
-          </div>
-
-        </div>
-
-        <div class="action-row">
-
-          <button
-            class="secondary"
-            onclick="editBook('${book.id}')">
-            ✏️ 編集
-          </button>
-
-          <button
-            class="danger"
-            onclick="deleteBook('${book.id}')">
-            🗑️ 削除
-          </button>
-
-        </div>
-
-        <div class="problems">
-
-          ${
-            book.problems
-              .map(
-                p => `
-
-                  <span
-                    class="problem ${
-                      p.done
-                        ? "done"
-                        : ""
-                    }"
-                    onclick="
-                      toggleProblem(
-                        '${book.id}',
-                        ${p.number}
-                      )
-                    ">
-
-                    ${p.number}
-
-                  </span>
-
-                `
-              )
-              .join("")
-          }
-
-        </div>
-
-      `;
-
-      container.appendChild(
-        div
+    const div =
+      document.createElement(
+        "div"
       );
 
-    }
-  );
+    div.className = "book";
 
+    div.innerHTML = `
+      <h3>
+        ${escapeHTML(book.name)}
+      </h3>
+
+      <p>
+        ${escapeHTML(book.subject)}
+        ・
+        ${done}/${total}
+        (${percent}%)
+      </p>
+
+      <div class="progress">
+        <div
+          class="progress-bar"
+          style="width:${percent}%">
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button
+          class="secondary"
+          onclick="editBook('${book.id}')">
+          ✏️ 編集
+        </button>
+
+        <button
+          class="danger"
+          onclick="deleteBook('${book.id}')">
+          🗑️ 削除
+        </button>
+      </div>
+
+      <div class="problems">
+        ${
+          book.problems
+            .map(
+              p => `
+                <span
+                  class="problem ${
+                    p.done
+                      ? "done"
+                      : ""
+                  }"
+                  onclick="
+                    toggleProblem(
+                      '${book.id}',
+                      ${p.number}
+                    )
+                  ">
+                  ${p.number}
+                </span>
+              `
+            )
+            .join("")
+        }
+      </div>
+    `;
+
+    container.appendChild(div);
+  });
 }
 
 
@@ -711,662 +688,608 @@ function renderBooks() {
 ========================= */
 
 function renderBookSelect() {
-
   const select =
     document.getElementById(
       "planBook"
     );
 
+  if (!select) return;
+
   const current =
     select.value;
 
-  select.innerHTML =
-    `
+  select.innerHTML = `
     <option value="">
       参考書なし
     </option>
+  `;
+
+  data.books.forEach(book => {
+    const option =
+      document.createElement(
+        "option"
+      );
+
+    option.value =
+      book.id;
+
+    option.textContent =
+      `${book.subject}：${book.name}`;
+
+    select.appendChild(option);
+  });
+
+  if (
+    data.books.some(
+      b => b.id === current
+    )
+  ) {
+    select.value = current;
+  }
+}
+
+
+/* =========================
+   今日の大問目標
+========================= */
+
+function getDailyTargetProblems(
+  plan,
+  dateString
+) {
+  if (
+    !plan.bookId ||
+    !plan.problems ||
+    plan.problems <= 0
+  ) {
+    return [];
+  }
+
+  const book =
+    data.books.find(
+      b => b.id === plan.bookId
+    );
+
+  if (!book) return [];
+
+  if (!Array.isArray(book.problems)) {
+    book.problems = [];
+  }
+
+  const key =
+    `${dateString}_${plan.id}`;
+
+  if (
+    Array.isArray(
+      data.dailyTargets[key]
+    )
+  ) {
+    return data.dailyTargets[key]
+      .map(
+        number =>
+          book.problems.find(
+            p =>
+              p.number ===
+              Number(number)
+          )
+      )
+      .filter(Boolean);
+  }
+
+  const targets =
+    book.problems
+      .filter(
+        p => !p.done
+      )
+      .slice(
+        0,
+        plan.problems
+      );
+
+  data.dailyTargets[key] =
+    targets.map(
+      p => p.number
+    );
+
+  save();
+
+  return targets;
+    }
+
+
+/* =========================
+   大問進捗
+========================= */
+
+function getDailyProblemProgress(
+  plan,
+  dateString
+) {
+  const targets =
+    getDailyTargetProblems(
+      plan,
+      dateString
+    );
+
+  if (
+    targets.length === 0
+  ) {
+    const book =
+      data.books.find(
+        b => b.id === plan.bookId
+      );
+
+    if (
+      book &&
+      Array.isArray(book.problems) &&
+      book.problems.length > 0 &&
+      book.problems.every(
+        p => p.done
+      )
+    ) {
+      return {
+        target:
+          plan.problems || 0,
+
+        done:
+          plan.problems || 0,
+
+        remaining: []
+      };
+    }
+
+    return {
+      target:
+        plan.problems || 0,
+
+      done: 0,
+
+      remaining: []
+    };
+  }
+
+  const done =
+    targets.filter(
+      p => p.done
+    ).length;
+
+  const remaining =
+    targets.filter(
+      p => !p.done
+    );
+
+  return {
+    target:
+      plan.problems,
+
+    done,
+
+    remaining
+  };
+}
+
+
+/* =========================
+   学習計画追加
+========================= */
+
+const addPlanButton =
+  document.getElementById(
+    "addPlan"
+  );
+
+if (addPlanButton) {
+  addPlanButton.addEventListener(
+    "click",
+    () => {
+      const weekdayElement =
+        document.getElementById(
+          "planDay"
+        );
+
+      const subjectElement =
+        document.getElementById(
+          "planSubject"
+        );
+
+      const bookElement =
+        document.getElementById(
+          "planBook"
+        );
+
+      const minutesElement =
+        document.getElementById(
+          "planMinutes"
+        );
+
+      const problemsElement =
+        document.getElementById(
+          "planProblems"
+        );
+
+      const weekday =
+        weekdayElement
+          ? Number(
+              weekdayElement.value
+            )
+          : 0;
+
+      const subject =
+        subjectElement
+          ? subjectElement.value
+          : "";
+
+      const bookId =
+        bookElement
+          ? bookElement.value
+          : "";
+
+      const minutes =
+        minutesElement
+          ? Number(
+              minutesElement.value
+            ) || 0
+          : 0;
+
+      const problems =
+        problemsElement
+          ? Number(
+              problemsElement.value
+            ) || 0
+          : 0;
+
+      if (
+        minutes === 0 &&
+        problems === 0
+      ) {
+        alert(
+          "目標時間または大問数を入力してください。"
+        );
+
+        return;
+      }
+
+      if (
+        problems > 0 &&
+        !bookId
+      ) {
+        alert(
+          "大問数を指定する場合は、参考書を選択してください。"
+        );
+
+        return;
+      }
+
+      data.plans.push({
+        id: createId(),
+        weekday,
+        subject,
+        bookId,
+        minutes,
+        problems
+      });
+
+      save();
+
+      if (minutesElement) {
+        minutesElement.value = "";
+      }
+
+      if (problemsElement) {
+        problemsElement.value = "";
+      }
+
+      renderAll();
+    }
+  );
+}
+
+
+/* =========================
+   学習計画編集
+========================= */
+
+function editPlan(id) {
+  const plan =
+    data.plans.find(
+      p => p.id === id
+    );
+
+  if (!plan) return;
+
+  const minutes =
+    prompt(
+      "目標時間（分）",
+      plan.minutes
+    );
+
+  if (minutes === null) {
+    return;
+  }
+
+  const problems =
+    prompt(
+      "大問数",
+      plan.problems
+    );
+
+  if (problems === null) {
+    return;
+  }
+
+  const newMinutes =
+    Number(minutes);
+
+  const newProblems =
+    Number(problems);
+
+  if (
+    newMinutes < 0 ||
+    newProblems < 0
+  ) {
+    alert(
+      "0以上の数字を入力してください。"
+    );
+
+    return;
+  }
+
+  if (
+    newProblems > 0 &&
+    !plan.bookId
+  ) {
+    alert(
+      "大問数を指定する場合は参考書が必要です。"
+    );
+
+    return;
+  }
+
+  plan.minutes =
+    newMinutes || 0;
+
+  plan.problems =
+    newProblems || 0;
+
+  Object.keys(
+    data.dailyTargets
+  ).forEach(key => {
+    if (
+      key.endsWith(
+        `_${plan.id}`
+      )
+    ) {
+      delete data.dailyTargets[key];
+    }
+  });
+
+  save();
+  renderAll();
+}
+
+
+/* =========================
+   学習計画削除
+========================= */
+
+function deletePlan(id) {
+  const ok =
+    confirm(
+      "この学習計画を削除しますか？"
+    );
+
+  if (!ok) return;
+
+  data.plans =
+    data.plans.filter(
+      p => p.id !== id
+    );
+
+  Object.keys(
+    data.dailyTargets
+  ).forEach(key => {
+    if (
+      key.endsWith(
+        `_${id}`
+      )
+    ) {
+      delete data.dailyTargets[key];
+    }
+  });
+
+  save();
+  renderAll();
+}
+
+
+/* =========================
+   今日の実際の勉強時間
+========================= */
+
+function getTodaySubjectSeconds(
+  subject,
+  dateString = getLocalDate()
+) {
+  return data.records
+    .filter(
+      record =>
+        record.date === dateString &&
+        record.subject === subject
+    )
+    .reduce(
+      (sum, record) =>
+        sum +
+        (
+          Number(record.duration) || 0
+        ),
+      0
+    );
+}
+
+
+/* =========================
+   今日の全勉強時間
+========================= */
+
+function getTodayTotalSeconds(
+  dateString = getLocalDate()
+) {
+  return data.records
+    .filter(
+      record =>
+        record.date === dateString
+    )
+    .reduce(
+      (sum, record) =>
+        sum +
+        (
+          Number(record.duration) || 0
+        ),
+      0
+    );
+}
+
+
+/* =========================
+   学習計画表示
+========================= */
+
+function renderPlans() {
+  const container =
+    document.getElementById(
+      "planList"
+    );
+
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (
+    data.plans.length === 0
+  ) {
+    container.innerHTML = `
+      <div class="empty">
+        まだ学習計画がありません。
+      </div>
     `;
 
-  data.books.forEach(
-    book => {
+    return;
+  }
 
-      const option =
-        document.createElement(
-          "option"
-        );
-
-      option.value =
-        book.id;
-
-      option.textContent =
-        `${book.subject}：${book.name}`;
-
-      select.appendChild(
-        option
+  data.plans.forEach(plan => {
+    const book =
+      data.books.find(
+        b => b.id === plan.bookId
       );
 
-    }
-  );
-
-  if (
-    data.books.some(
-      b =>
-        b.id === current
-    )
-  ) {
-
-    select.value =
-      current;
-
-  }
-
-}
-
-
-/* =========================
-   今日の大問目標
-========================= */
-
-function getDailyTargetProblems(
-  plan,
-  dateString
-) {
-
-  if (
-    !plan.bookId ||
-    !plan.problems ||
-    plan.problems <= 0
-  ) {
-
-    return [];
-
-  }
-
-  const book =
-    data.books.find(
-      b =>
-        b.id === plan.bookId
-    );
-
-  if (!book) return [];
-
-
-  const key =
-    `${dateString}_${plan.id}`;
-
-
-  if (
-    Array.isArray(
-      data.dailyTargets[key]
-    )
-  ) {
-
-    return data.dailyTargets[key]
-      .map(
-        number =>
-          book.problems.find(
-            p =>
-              p.number ===
-              Number(number)
-          )
-      )
-      .filter(Boolean);
-
-  }
-
-
-  const targets =
-    book.problems
-      .filter(
-        p =>
-          !p.done
-      )
-      .slice(
-        0,
-        plan.problems
+    const progress =
+      getDailyProblemProgress(
+        plan,
+        getLocalDate()
       );
 
-
-  data.dailyTargets[key] =
-    targets.map(
-      p =>
-        p.number
-    );
-
-
-  save();
-
-  return targets;
-
-}
-
-
-/* =========================
-   大問進捗
-========================= */
-
-function getDailyProblemProgress(
-  plan,
-  dateString
-) {
-
-  const targets =
-    getDailyTargetProblems(
-      plan,
-      dateString
-    );
-
-
-  if (
-    targets.length === 0
-  ) {
-
-    return {
-
-      target:
-        plan.problems || 0,
-
-      done:
-        plan.problems || 0,
-
-      remaining:
-        []
-
-    };
-
-  }
-
-
-  const done =
-    targets.filter(
-      p =>
-        p.done
-    ).length;
-
-
-  const remaining =
-    targets.filter(
-      p =>
-        !p.done
-    );
-
-
-  return {
-
-    target:
-      plan.problems,
-
-    done,
-
-    remaining
-
-  };
-
-}
-
-
-/* =========================
-   計画追加
-========================= */
-
-document
-  .getElementById("addPlan")
-  .addEventListener(
-    "click",
-    () => {
-
-      const weekday =
-        Number(
-          document
-            .getElementById(
-              "planDay"
-            )
-            .value
-        );
-
-      const subject =
-        document
-          .getElementById(
-            "planSubject"
-          )
-          .value;
-
-      const bookId =
-        document
-          .getElementById(
-            "planBook"
-          )
-          .value;
-
-      const minutes =
-        Number(
-          document
-            .getElementById(
-              "planMinutes"
-            )
-            .value
-        ) || 0;
-
-      const problems =
-        Number(
-          document
-            .getElementById(
-              "planProblems"
-            )
-            .value
-        ) || 0;
-
-
-      if (
-        minutes === 0 &&
-        problems === 0
-      ) {
-
-        alert(
-          "目標時間または大問数を入力してください。"
-        );
-
-        return;
-
-      }
-
-
-      if (
-        problems > 0 &&
-        !bookId
-      ) {
-
-        alert(
-          "大問数を指定する場合は、参考書を選択してください。"
-        );
-
-        return;
-
-      }
-
-
-      data.plans.push({
-
-        id:
-          createId(),
-
-        weekday,
-
-        subject,
-
-        bookId,
-
-        minutes,
-
-        problems
-
-      });
-
-
-      save();
-
-
-      document
-        .getElementById(
-          "planMinutes"
-        )
-        .value = "";
-
-      document
-        .getElementById(
-          "planProblems"
-        )
-        .value = "";
-
-
-      renderAll();
-
-    }
-  );
-
-
-/* =========================
-   計画編集
-========================= */
-
-function editPlan(id) {
-
-  const plan =
-    data.plans.find(
-      p =>
-        p.id === id
-    );
-
-  if (!plan) return;
-
-
-  const minutes =
-    prompt(
-      "目標時間（分）",
-      plan.minutes
-    );
-
-  if (
-    minutes === null
-  ) {
-    return;
-  }
-
-
-  const problems =
-    prompt(
-      "大問数",
-      plan.problems
-    );
-
-  if (
-    problems === null
-  ) {
-    return;
-  }
-
-
-  plan.minutes =
-    Number(minutes) || 0;
-
-  plan.problems =
-    Number(problems) || 0;
-
-
-  Object.keys(
-    data.dailyTargets
-  ).forEach(
-    key => {
-
-      if (
-        key.endsWith(
-          `_${plan.id}`
-        )
-      ) {
-
-        delete data.dailyTargets[key];
-
-      }
-
-    }
-  );
-
-
-  save();
-
-  renderAll();
-
-}
-
-
-/* =========================
-   計画削除
-========================= */
-
-function deletePlan(id) {
-
-  const ok =
-    confirm(
-      "この学習計画を削除しますか？"
-    );
-
-  if (!ok) return;
-
-
-  data.plans =
-    data.plans.filter(
-      p =>
-        p.id !== id
-    );
-
-
-  Object.keys(
-    data.dailyTargets
-  ).forEach(
-    key => {
-
-      if (
-        key.endsWith(
-          `_${id}`
-        )
-      ) {
-
-        delete data.dailyTargets[key];
-
-      }
-
-    }
-  );
-
-
-  save();
-
-  renderAll();
-
-}
-
-
-/* =========================
-   今日の実際の勉強時間
-========================= */
-
-function getTodaySubjectSeconds(
-  subject,
-  dateString = getLocalDate()
-) {
-
-  return data.records
-    .filter(
-      record =>
-        record.date === dateString &&
-        record.subject === subject
-    )
-    .reduce(
-      (sum, record) =>
-        sum + record.duration,
-      0
-    );
-
-}
-
-
-/* =========================
-   今日の全勉強時間
-========================= */
-
-function getTodayTotalSeconds(
-  dateString = getLocalDate()
-) {
-
-  return data.records
-    .filter(
-      record =>
-        record.date === dateString
-    )
-    .reduce(
-      (sum, record) =>
-        sum + record.duration,
-      0
-    );
-
-}
-
-
-/* =========================
-   計画表示
-========================= */
-
-function renderPlans() {
-
-  const container =
-    document.getElementById(
-      "planList"
-    );
-
-  container.innerHTML = "";
-
-
-  if (
-    data.plans.length === 0
-  ) {
-
-    container.innerHTML =
-      `
-      <div class="empty">
-        まだ学習計画がありません。
-      </div>
-      `;
-
-    return;
-
-  }
-
-
-  data.plans.forEach(
-    plan => {
-
-      const book =
-        data.books.find(
-          b =>
-            b.id === plan.bookId
-        );
-
-
-      const progress =
-        getDailyProblemProgress(
-          plan,
-          getLocalDate()
-        );
-
-
-      const div =
-        document.createElement(
-          "div"
-        );
-
-      div.className =
-        "plan-card";
-
-
-      let problemHTML = "";
-
-
-      if (
-        book &&
-        plan.problems > 0
-      ) {
-
-        problemHTML = `
-
-          <p>
-            📝 大問進捗：
-            <strong>
-              ${progress.done}
-              /
-              ${plan.problems}
-              個完了
-            </strong>
-          </p>
-
-        `;
-
-
-        if (
-          progress.remaining.length > 0
-        ) {
-
-          problemHTML += `
-
-            <p>
-              👉 残り：
-              <strong>
-                ${
-                  progress.remaining
-                    .map(
-                      p =>
-                        `大問${p.number}`
-                    )
-                    .join("・")
-                }
-              </strong>
-            </p>
-
-          `;
-
-        } else {
-
-          problemHTML += `
-
-            <p>
-              🎉
-              <strong>
-                今日の大問目標達成！
-              </strong>
-            </p>
-
-          `;
-
-        }
-
-      }
-
-
-      div.innerHTML = `
-
-        <h3>
-          ${dayNames[plan.weekday]}
-        </h3>
-
+    const div =
+      document.createElement(
+        "div"
+      );
+
+    div.className =
+      "plan-card";
+
+    let problemHTML = "";
+
+    if (
+      book &&
+      plan.problems > 0
+    ) {
+      problemHTML = `
         <p>
+          📝 大問進捗：
           <strong>
-            ${escapeHTML(plan.subject)}
+            ${progress.done}
+            /
+            ${plan.problems}
+            個完了
           </strong>
         </p>
-
-        ${
-          book
-            ? `
-              <div class="plan-book">
-                📚 ${escapeHTML(book.name)}
-              </div>
-            `
-            : ""
-        }
-
-        <p>
-          ⏱ ${plan.minutes}分
-          ・
-          📝 大問${plan.problems}個
-        </p>
-
-        ${problemHTML}
-
-        <div class="action-row">
-
-          <button
-            class="secondary"
-            onclick="editPlan('${plan.id}')">
-            ✏️ 編集
-          </button>
-
-          <button
-            class="danger"
-            onclick="deletePlan('${plan.id}')">
-            🗑️ 削除
-          </button>
-
-        </div>
-
       `;
 
-
-      container.appendChild(
-        div
-      );
-
+      if (
+        progress.remaining.length > 0
+      ) {
+        problemHTML += `
+          <p>
+            👉 残り：
+            <strong>
+              ${
+                progress.remaining
+                  .map(
+                    p =>
+                      `大問${p.number}`
+                  )
+                  .join("・")
+              }
+            </strong>
+          </p>
+        `;
+      } else {
+        problemHTML += `
+          <p>
+            🎉
+            <strong>
+              今日の大問目標達成！
+            </strong>
+          </p>
+        `;
+      }
     }
-  );
 
+    div.innerHTML = `
+      <h3>
+        ${dayNames[plan.weekday]}
+      </h3>
+
+      <p>
+        <strong>
+          ${escapeHTML(plan.subject)}
+        </strong>
+      </p>
+
+      ${
+        book
+          ? `
+            <div class="plan-book">
+              📚 ${escapeHTML(book.name)}
+            </div>
+          `
+          : ""
+      }
+
+      <p>
+        ⏱ ${plan.minutes}分
+        ・
+        📝 大問${plan.problems}個
+      </p>
+
+      ${problemHTML}
+
+      <div class="action-row">
+        <button
+          class="secondary"
+          onclick="editPlan('${plan.id}')">
+          ✏️ 編集
+        </button>
+
+        <button
+          class="danger"
+          onclick="deletePlan('${plan.id}')">
+          🗑️ 削除
+        </button>
+      </div>
+    `;
+
+    container.appendChild(div);
+  });
 }
 
 
@@ -1375,992 +1298,184 @@ function renderPlans() {
 ========================= */
 
 function renderHome() {
-
   const today =
     new Date().getDay();
 
   const todayString =
     getLocalDate();
 
-
   const plans =
     data.plans.filter(
       p =>
-        p.weekday === today
+        Number(p.weekday) === today
     );
-
 
   const container =
     document.getElementById(
       "todayPlans"
     );
 
-  container.innerHTML = "";
+  if (!container) return;
 
+  container.innerHTML = "";
 
   if (
     plans.length === 0
   ) {
-
-    container.innerHTML =
-      `
+    container.innerHTML = `
       <div class="card empty">
         今日の学習計画はありません。
       </div>
-      `;
+    `;
 
-  } else {
+    return;
+  }
 
-    plans.forEach(
-      plan => {
-
-        const book =
-          data.books.find(
-            b =>
-              b.id ===
-              plan.bookId
-          );
-
-
-        const actualSeconds =
-          getTodaySubjectSeconds(
-            plan.subject,
-            todayString
-          );
-
-
-        const actualMinutes =
-          Math.floor(
-            actualSeconds / 60
-          );
-
-
-        let achievementText = "";
-
-
-        if (
-          plan.minutes > 0
-        ) {
-
-          const percent =
-            Math.min(
-              100,
-              Math.round(
-                actualMinutes /
-                plan.minutes *
-                100
-              )
-            );
-
-
-          achievementText = `
-
-            <p>
-              📊 達成率：
-              <strong>
-                ${percent}%
-              </strong>
-            </p>
-
-          `;
-
-        }
-
-
-        let problemsHTML = "";
-
-
-        if (
-          book &&
-          plan.problems > 0
-        ) {
-
-          const progress =
-            getDailyProblemProgress(
-              plan,
-              todayString
-            );
-
-
-          problemsHTML = `
-
-            <p>
-              📝 大問目標：
-              ${plan.problems}個
-            </p>
-
-            <p>
-              📝 大問進捗：
-              <strong>
-                ${progress.done}
-                /
-                ${plan.problems}
-                個完了
-              </strong>
-            </p>
-
-          `;
-
-
-          if (
-            progress.remaining.length > 0
-          ) {
-
-            problemsHTML += `
-
-                `${book.subject}：${book.name}`;
-
-      select.appendChild(
-        option
+  plans.forEach(plan => {
+    const book =
+      data.books.find(
+        b => b.id === plan.bookId
       );
 
-    }
-  );
-
-  if (
-    data.books.some(
-      b =>
-        b.id === current
-    )
-  ) {
-
-    select.value =
-      current;
-
-  }
-
-}
-
-
-/* =========================
-   今日の大問目標
-========================= */
-
-function getDailyTargetProblems(
-  plan,
-  dateString
-) {
-
-  if (
-    !plan.bookId ||
-    !plan.problems ||
-    plan.problems <= 0
-  ) {
-
-    return [];
-
-  }
-
-  const book =
-    data.books.find(
-      b =>
-        b.id === plan.bookId
-    );
-
-  if (!book) return [];
-
-
-  const key =
-    `${dateString}_${plan.id}`;
-
-
-  if (
-    Array.isArray(
-      data.dailyTargets[key]
-    )
-  ) {
-
-    return data.dailyTargets[key]
-      .map(
-        number =>
-          book.problems.find(
-            p =>
-              p.number ===
-              Number(number)
-          )
-      )
-      .filter(Boolean);
-
-  }
-
-
-  const targets =
-    book.problems
-      .filter(
-        p =>
-          !p.done
-      )
-      .slice(
-        0,
-        plan.problems
+    const actualSeconds =
+      getTodaySubjectSeconds(
+        plan.subject,
+        todayString
       );
 
+    const actualMinutes =
+      Math.floor(
+        actualSeconds / 60
+      );
 
-  data.dailyTargets[key] =
-    targets.map(
-      p =>
-        p.number
-    );
+    let achievementText = "";
 
-
-  save();
-
-  return targets;
-
-}
-
-
-/* =========================
-   大問進捗
-========================= */
-
-function getDailyProblemProgress(
-  plan,
-  dateString
-) {
-
-  const targets =
-    getDailyTargetProblems(
-      plan,
-      dateString
-    );
-
-
-  if (
-    targets.length === 0
-  ) {
-
-    return {
-
-      target:
-        plan.problems || 0,
-
-      done:
-        plan.problems || 0,
-
-      remaining:
-        []
-
-    };
-
-  }
-
-
-  const done =
-    targets.filter(
-      p =>
-        p.done
-    ).length;
-
-
-  const remaining =
-    targets.filter(
-      p =>
-        !p.done
-    );
-
-
-  return {
-
-    target:
-      plan.problems,
-
-    done,
-
-    remaining
-
-  };
-
-}
-
-
-/* =========================
-   計画追加
-========================= */
-
-document
-  .getElementById("addPlan")
-  .addEventListener(
-    "click",
-    () => {
-
-      const weekday =
-        Number(
-          document
-            .getElementById(
-              "planDay"
-            )
-            .value
-        );
-
-      const subject =
-        document
-          .getElementById(
-            "planSubject"
+    if (
+      plan.minutes > 0
+    ) {
+      const percent =
+        Math.min(
+          100,
+          Math.round(
+            actualMinutes /
+            plan.minutes *
+            100
           )
-          .value;
-
-      const bookId =
-        document
-          .getElementById(
-            "planBook"
-          )
-          .value;
-
-      const minutes =
-        Number(
-          document
-            .getElementById(
-              "planMinutes"
-            )
-            .value
-        ) || 0;
-
-      const problems =
-        Number(
-          document
-            .getElementById(
-              "planProblems"
-            )
-            .value
-        ) || 0;
-
-
-      if (
-        minutes === 0 &&
-        problems === 0
-      ) {
-
-        alert(
-          "目標時間または大問数を入力してください。"
         );
 
-        return;
-
-      }
-
-
-      if (
-        problems > 0 &&
-        !bookId
-      ) {
-
-        alert(
-          "大問数を指定する場合は、参考書を選択してください。"
-        );
-
-        return;
-
-      }
-
-
-      data.plans.push({
-
-        id:
-          createId(),
-
-        weekday,
-
-        subject,
-
-        bookId,
-
-        minutes,
-
-        problems
-
-      });
-
-
-      save();
-
-
-      document
-        .getElementById(
-          "planMinutes"
-        )
-        .value = "";
-
-      document
-        .getElementById(
-          "planProblems"
-        )
-        .value = "";
-
-
-      renderAll();
-
-    }
-  );
-
-
-/* =========================
-   計画編集
-========================= */
-
-function editPlan(id) {
-
-  const plan =
-    data.plans.find(
-      p =>
-        p.id === id
-    );
-
-  if (!plan) return;
-
-
-  const minutes =
-    prompt(
-      "目標時間（分）",
-      plan.minutes
-    );
-
-  if (
-    minutes === null
-  ) {
-    return;
-  }
-
-
-  const problems =
-    prompt(
-      "大問数",
-      plan.problems
-    );
-
-  if (
-    problems === null
-  ) {
-    return;
-  }
-
-
-  plan.minutes =
-    Number(minutes) || 0;
-
-  plan.problems =
-    Number(problems) || 0;
-
-
-  Object.keys(
-    data.dailyTargets
-  ).forEach(
-    key => {
-
-      if (
-        key.endsWith(
-          `_${plan.id}`
-        )
-      ) {
-
-        delete data.dailyTargets[key];
-
-      }
-
-    }
-  );
-
-
-  save();
-
-  renderAll();
-
-}
-
-
-/* =========================
-   計画削除
-========================= */
-
-function deletePlan(id) {
-
-  const ok =
-    confirm(
-      "この学習計画を削除しますか？"
-    );
-
-  if (!ok) return;
-
-
-  data.plans =
-    data.plans.filter(
-      p =>
-        p.id !== id
-    );
-
-
-  Object.keys(
-    data.dailyTargets
-  ).forEach(
-    key => {
-
-      if (
-        key.endsWith(
-          `_${id}`
-        )
-      ) {
-
-        delete data.dailyTargets[key];
-
-      }
-
-    }
-  );
-
-
-  save();
-
-  renderAll();
-
-}
-
-
-/* =========================
-   今日の実際の勉強時間
-========================= */
-
-function getTodaySubjectSeconds(
-  subject,
-  dateString = getLocalDate()
-) {
-
-  return data.records
-    .filter(
-      record =>
-        record.date === dateString &&
-        record.subject === subject
-    )
-    .reduce(
-      (sum, record) =>
-        sum + record.duration,
-      0
-    );
-
-}
-
-
-/* =========================
-   今日の全勉強時間
-========================= */
-
-function getTodayTotalSeconds(
-  dateString = getLocalDate()
-) {
-
-  return data.records
-    .filter(
-      record =>
-        record.date === dateString
-    )
-    .reduce(
-      (sum, record) =>
-        sum + record.duration,
-      0
-    );
-
-}
-
-
-/* =========================
-   計画表示
-========================= */
-
-function renderPlans() {
-
-  const container =
-    document.getElementById(
-      "planList"
-    );
-
-  container.innerHTML = "";
-
-
-  if (
-    data.plans.length === 0
-  ) {
-
-    container.innerHTML =
-      `
-      <div class="empty">
-        まだ学習計画がありません。
-      </div>
+      achievementText = `
+        <p>
+          📊 達成率：
+          <strong>
+            ${percent}%
+          </strong>
+        </p>
       `;
+    }
 
-    return;
+    let problemsHTML = "";
 
-  }
-
-
-  data.plans.forEach(
-    plan => {
-
-      const book =
-        data.books.find(
-          b =>
-            b.id === plan.bookId
-        );
-
-
+    if (
+      book &&
+      plan.problems > 0
+    ) {
       const progress =
         getDailyProblemProgress(
           plan,
-          getLocalDate()
+          todayString
         );
 
-
-      const div =
-        document.createElement(
-          "div"
-        );
-
-      div.className =
-        "plan-card";
-
-
-      let problemHTML = "";
-
-
-      if (
-        book &&
-        plan.problems > 0
-      ) {
-
-        problemHTML = `
-
-          <p>
-            📝 大問進捗：
-            <strong>
-              ${progress.done}
-              /
-              ${plan.problems}
-              個完了
-            </strong>
-          </p>
-
-        `;
-
-
-        if (
-          progress.remaining.length > 0
-        ) {
-
-          problemHTML += `
-
-            <p>
-              👉 残り：
-              <strong>
-                ${
-                  progress.remaining
-                    .map(
-                      p =>
-                        `大問${p.number}`
-                    )
-                    .join("・")
-                }
-              </strong>
-            </p>
-
-          `;
-
-        } else {
-
-          problemHTML += `
-
-            <p>
-              🎉
-              <strong>
-                今日の大問目標達成！
-              </strong>
-            </p>
-
-          `;
-
-        }
-
-      }
-
-
-      div.innerHTML = `
-
-        <h3>
-          ${dayNames[plan.weekday]}
-        </h3>
+      problemsHTML = `
+        <p>
+          📝 大問目標：
+          ${plan.problems}個
+        </p>
 
         <p>
+          📝 大問進捗：
           <strong>
-            ${escapeHTML(plan.subject)}
+            ${progress.done}
+            /
+            ${plan.problems}
+            個完了
           </strong>
         </p>
-
-        ${
-          book
-            ? `
-              <div class="plan-book">
-                📚 ${escapeHTML(book.name)}
-              </div>
-            `
-            : ""
-        }
-
-        <p>
-          ⏱ ${plan.minutes}分
-          ・
-          📝 大問${plan.problems}個
-        </p>
-
-        ${problemHTML}
-
-        <div class="action-row">
-
-          <button
-            class="secondary"
-            onclick="editPlan('${plan.id}')">
-            ✏️ 編集
-          </button>
-
-          <button
-            class="danger"
-            onclick="deletePlan('${plan.id}')">
-            🗑️ 削除
-          </button>
-
-        </div>
-
       `;
 
+      if (
+        progress.remaining.length > 0
+      ) {
+        problemsHTML += `
+          <p>
+            👉 今日やる：
+            <strong>
+              ${
+                progress.remaining
+                  .map(
+                    p =>
+                      `大問${p.number}`
+                  )
+                  .join("・")
+              }
+            </strong>
+          </p>
+        `;
+      } else {
+        problemsHTML += `
+          <p>
+            🎉
+            <strong>
+              今日の大問目標達成！
+            </strong>
+          </p>
+        `;
+      }
+    }
 
-      container.appendChild(
-        div
+    const div =
+      document.createElement(
+        "div"
       );
 
-    }
-  );
-
-}
-
-
-/* =========================
-   ホーム
-========================= */
-
-function renderHome() {
-
-  const today =
-    new Date().getDay();
-
-  const todayString =
-    getLocalDate();
-
-
-  const plans =
-    data.plans.filter(
-      p =>
-        p.weekday === today
-    );
-
-
-  const container =
-    document.getElementById(
-      "todayPlans"
-    );
-
-  container.innerHTML = "";
-
-
-  if (
-    plans.length === 0
-  ) {
-
-    container.innerHTML =
-      `
-      <div class="card empty">
-        今日の学習計画はありません。
-      </div>
-      `;
-
-  } else {
-
-    plans.forEach(
-      plan => {
-
-        const book =
-          data.books.find(
-            b =>
-              b.id ===
-              plan.bookId
-          );
-
-
-        const actualSeconds =
-          getTodaySubjectSeconds(
-            plan.subject,
-            todayString
-          );
-
-
-        const actualMinutes =
-          Math.floor(
-            actualSeconds / 60
-          );
-
-
-        let achievementText = "";
-
-
-        if (
-          plan.minutes > 0
-        ) {
-
-          const percent =
-            Math.min(
-              100,
-              Math.round(
-                actualMinutes /
-                plan.minutes *
-                100
-              )
-            );
-
-
-          achievementText = `
-
-            <p>
-              📊 達成率：
-              <strong>
-                ${percent}%
-              </strong>
-            </p>
-
-          `;
-
-        }
-
-
-        let problemsHTML = "";
-
-
-        if (
-          book &&
-          plan.problems > 0
-        ) {
-
-          const progress =
-            getDailyProblemProgress(
-              plan,
-              todayString
-            );
-
-
-          problemsHTML = `
-
-            <p>
-              📝 大問目標：
-              ${plan.problems}個
-            </p>
-
-            <p>
-              📝 大問進捗：
-              <strong>
-                ${progress.done}
-                /
-                ${plan.problems}
-                個完了
-              </strong>
-            </p>
-
-          `;
-
-
-          if (
-            progress.remaining.length > 0
-          ) {
-
-            problemsHTML += `
-
-                        <p>
-                👉 残り：
-                <strong>
-                  ${
-                    progress.remaining
-                      .map(
-                        p =>
-                          `大問${p.number}`
-                      )
-                      .join("・")
-                  }
-                </strong>
-              </p>
-
-            `;
-
-          } else {
-
-            problemsHTML += `
-
-              <p>
-                🎉
-                <strong>
-                  今日の大問目標達成！
-                </strong>
-              </p>
-
-            `;
-
-          }
-
-        }
-
-
-        const div =
-          document.createElement(
-            "div"
-          );
-
-        div.className =
-          "card";
-
-
-        div.innerHTML = `
-
-          <h3>
-            ${escapeHTML(plan.subject)}
-          </h3>
-
-          ${
-            book
-              ? `
-                <div class="plan-book">
-                  📚 ${escapeHTML(book.name)}
-                </div>
-              `
-              : ""
-          }
-
-          <p>
-            ⏱ 目標：
-            ${plan.minutes}分
-          </p>
-
-          <p>
-            ⏱ 実績：
-            ${actualMinutes}分
-          </p>
-
-          ${achievementText}
-
-          ${problemsHTML}
-
-        `;
-
-        container.appendChild(
-          div
-        );
-
+    div.className =
+      "card";
+
+    div.innerHTML = `
+      <h3>
+        ${escapeHTML(plan.subject)}
+      </h3>
+
+      ${
+        book
+          ? `
+            <div class="plan-book">
+              📚 ${escapeHTML(book.name)}
+            </div>
+          `
+          : ""
       }
-    );
 
-  }
+      <p>
+        ⏱ 目標：
+        <strong>
+          ${plan.minutes}分
+        </strong>
+      </p>
 
+      <p>
+        ⏱ 実績：
+        <strong>
+          ${actualMinutes}分
+        </strong>
+      </p>
+
+      ${achievementText}
+
+      ${problemsHTML}
+    `;
+
+    container.appendChild(div);
+  });
 }
 
 
@@ -2369,7 +1484,6 @@ function renderHome() {
 ========================= */
 
 function renderStats() {
-
   const container =
     document.getElementById(
       "statsContent"
@@ -2388,7 +1502,10 @@ function renderStats() {
   const totalSeconds =
     data.records.reduce(
       (sum, record) =>
-        sum + record.duration,
+        sum +
+        (
+          Number(record.duration) || 0
+        ),
       0
     );
 
@@ -2404,51 +1521,58 @@ function renderStats() {
 
   let bookHTML = "";
 
-  data.books.forEach(
-    book => {
+  data.books.forEach(book => {
+    if (!Array.isArray(book.problems)) {
+      book.problems = [];
+    }
 
-      const total =
-        book.problems.length;
+    const total =
+      book.problems.length;
 
-      const done =
-        book.problems.filter(
-          p => p.done
-        ).length;
+    const done =
+      book.problems.filter(
+        p => p.done
+      ).length;
 
-      const percent =
-        total === 0
-          ? 0
-          : Math.round(
-              done / total * 100
-            );
+    const percent =
+      total === 0
+        ? 0
+        : Math.round(
+            done /
+            total *
+            100
+          );
 
-      bookHTML += `
+    bookHTML += `
+      <div class="card">
 
-        <div class="card">
+        <strong>
+          ${escapeHTML(book.name)}
+        </strong>
 
-          <strong>
-            ${escapeHTML(book.name)}
-          </strong>
+        <p>
+          ${done}/${total}
+          大問完了
+          （${percent}%）
+        </p>
 
-          <p>
-            ${done}/${total}
-            大問完了
-            （${percent}%）
-          </p>
-
+        <div class="progress">
+          <div
+            class="progress-bar"
+            style="width:${percent}%">
+          </div>
         </div>
 
-      `;
-
-    }
-  );
-
+      </div>
+    `;
+  });
 
   container.innerHTML = `
-
     <div class="card">
 
-      <h3>今日</h3>
+      <h3>
+        今日
+      </h3>
 
       <p>
         ⏱ 勉強時間：
@@ -2461,7 +1585,9 @@ function renderStats() {
 
     <div class="card">
 
-      <h3>これまでの合計</h3>
+      <h3>
+        これまでの合計
+      </h3>
 
       <p>
         ⏱ 勉強時間：
@@ -2484,9 +1610,7 @@ function renderStats() {
         </div>
       `
     }
-
   `;
-
 }
 
 
@@ -2495,19 +1619,12 @@ function renderStats() {
 ========================= */
 
 function renderAll() {
-
   renderBooks();
-
   renderBookSelect();
-
   renderPlans();
-
   renderHome();
-
   renderStats();
-
   updateTimer();
-
 }
 
 
@@ -2516,14 +1633,27 @@ function renderAll() {
 ========================= */
 
 function escapeHTML(value) {
-
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+    .replaceAll(
+      ">",
+      "&gt;"
+    )
+    .replaceAll(
+      '"',
+      "&quot;"
+    )
+    .replaceAll(
+      "'",
+      "&#039;"
+    );
 }
 
 
