@@ -106,6 +106,8 @@
 
     <div class="card">
 
+      <label>曜日</label>
+
       <select id="planDay">
         <option value="1">月曜日</option>
         <option value="2">火曜日</option>
@@ -116,6 +118,8 @@
         <option value="0">日曜日</option>
       </select>
 
+      <label>科目</label>
+
       <select id="planSubject">
         <option value="数学">数学</option>
         <option value="英語">英語</option>
@@ -124,9 +128,13 @@
         <option value="社会">社会</option>
       </select>
 
+      <label>参考書</label>
+
       <select id="planBook">
         <option value="">参考書なし</option>
       </select>
+
+      <label>目標時間</label>
 
       <input
         id="planMinutes"
@@ -134,11 +142,13 @@
         min="0"
         placeholder="目標時間（分）">
 
+      <label>今日やる大問数</label>
+
       <input
         id="planProblems"
         type="number"
         min="0"
-        placeholder="大問数">
+        placeholder="例：5">
 
       <button id="addPlan">
         計画を追加
