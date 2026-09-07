@@ -1043,9 +1043,9 @@ if (aiBookSearchButton) {
 
     try {
       const url =
-        "https://www.googleapis.com/books/v1/volumes?q=" +
-        encodeURIComponent(keyword) +
-        "&maxResults=10&langRestrict=ja";
+  "https://openlibrary.org/search.json?q=" +
+  encodeURIComponent(keyword) +
+  "&limit=10";
 
       const response = await fetch(url);
 
