@@ -1,4 +1,4 @@
-const CACHE_NAME = "study-manager-v1";
+const CACHE_NAME = "study-manager-v2";
 
 const FILES = [
   "./",
