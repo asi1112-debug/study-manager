@@ -4,7 +4,6 @@
 
 body {
   margin: 0;
-
   font-family:
     -apple-system,
     BlinkMacSystemFont,
@@ -64,7 +63,6 @@ select,
 button {
   width: 100%;
   padding: 13px;
-
   margin: 6px 0;
 
   border-radius: 10px;
@@ -93,13 +91,6 @@ button.danger {
   background: #dc2626;
 }
 
-button.small {
-  width: auto;
-  padding: 8px 12px;
-  font-size: 14px;
-  margin-right: 5px;
-}
-
 .action-row {
   display: flex;
   gap: 8px;
@@ -111,7 +102,8 @@ button.small {
 
 label {
   display: block;
-  margin-bottom: 5px;
+  margin-top: 10px;
+  margin-bottom: 4px;
   font-weight: bold;
 }
 
@@ -128,24 +120,15 @@ label {
 #timerDisplay {
   font-size: 48px;
   text-align: center;
-
   margin: 35px 0;
-
   font-variant-numeric: tabular-nums;
-}
-
-.book h3,
-.plan-card h3 {
-  margin-top: 0;
 }
 
 .progress {
   height: 10px;
   background: #eee;
-
   border-radius: 10px;
   overflow: hidden;
-
   margin: 10px 0;
 }
 
@@ -181,6 +164,26 @@ label {
   color: white;
 }
 
+.plan-book {
+  background: #f0f0ff;
+  padding: 9px 12px;
+  border-radius: 9px;
+  display: inline-block;
+  margin: 5px 0;
+}
+
+.plan-progress {
+  margin-top: 12px;
+}
+
+.plan-progress-text {
+  font-weight: bold;
+}
+
+.today-task {
+  border-left: 5px solid #4f46e5;
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -199,14 +202,10 @@ label {
   margin-top: 5px;
 }
 
-.plan-book {
-  background: #f0f0ff;
-  padding: 8px 10px;
-  border-radius: 8px;
-
-  display: inline-block;
-
-  margin: 5px 0;
+.empty {
+  text-align: center;
+  padding: 30px 10px;
+  color: #777;
 }
 
 nav {
@@ -230,18 +229,9 @@ nav {
 nav button {
   background: white;
   color: #333;
-
   border-radius: 0;
-
   margin: 0;
-
   font-size: 23px;
-}
-
-.empty {
-  text-align: center;
-  padding: 30px 10px;
-  color: #777;
 }
 
 @media (max-width: 450px) {
