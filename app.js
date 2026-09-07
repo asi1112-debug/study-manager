@@ -2277,4 +2277,258 @@ function renderHome() {
 
             problemsHTML += `
 
-          
+                        <p>
+                👉 残り：
+                <strong>
+                  ${
+                    progress.remaining
+                      .map(
+                        p =>
+                          `大問${p.number}`
+                      )
+                      .join("・")
+                  }
+                </strong>
+              </p>
+
+            `;
+
+          } else {
+
+            problemsHTML += `
+
+              <p>
+                🎉
+                <strong>
+                  今日の大問目標達成！
+                </strong>
+              </p>
+
+            `;
+
+          }
+
+        }
+
+
+        const div =
+          document.createElement(
+            "div"
+          );
+
+        div.className =
+          "card";
+
+
+        div.innerHTML = `
+
+          <h3>
+            ${escapeHTML(plan.subject)}
+          </h3>
+
+          ${
+            book
+              ? `
+                <div class="plan-book">
+                  📚 ${escapeHTML(book.name)}
+                </div>
+              `
+              : ""
+          }
+
+          <p>
+            ⏱ 目標：
+            ${plan.minutes}分
+          </p>
+
+          <p>
+            ⏱ 実績：
+            ${actualMinutes}分
+          </p>
+
+          ${achievementText}
+
+          ${problemsHTML}
+
+        `;
+
+        container.appendChild(
+          div
+        );
+
+      }
+    );
+
+  }
+
+}
+
+
+/* =========================
+   成績・分析
+========================= */
+
+function renderStats() {
+
+  const container =
+    document.getElementById(
+      "statsContent"
+    );
+
+  if (!container) return;
+
+  const today =
+    getLocalDate();
+
+  const todaySeconds =
+    getTodayTotalSeconds(
+      today
+    );
+
+  const totalSeconds =
+    data.records.reduce(
+      (sum, record) =>
+        sum + record.duration,
+      0
+    );
+
+  const totalMinutes =
+    Math.floor(
+      totalSeconds / 60
+    );
+
+  const todayMinutes =
+    Math.floor(
+      todaySeconds / 60
+    );
+
+  let bookHTML = "";
+
+  data.books.forEach(
+    book => {
+
+      const total =
+        book.problems.length;
+
+      const done =
+        book.problems.filter(
+          p => p.done
+        ).length;
+
+      const percent =
+        total === 0
+          ? 0
+          : Math.round(
+              done / total * 100
+            );
+
+      bookHTML += `
+
+        <div class="card">
+
+          <strong>
+            ${escapeHTML(book.name)}
+          </strong>
+
+          <p>
+            ${done}/${total}
+            大問完了
+            （${percent}%）
+          </p>
+
+        </div>
+
+      `;
+
+    }
+  );
+
+
+  container.innerHTML = `
+
+    <div class="card">
+
+      <h3>今日</h3>
+
+      <p>
+        ⏱ 勉強時間：
+        <strong>
+          ${todayMinutes}分
+        </strong>
+      </p>
+
+    </div>
+
+    <div class="card">
+
+      <h3>これまでの合計</h3>
+
+      <p>
+        ⏱ 勉強時間：
+        <strong>
+          ${totalMinutes}分
+        </strong>
+      </p>
+
+    </div>
+
+    <h3>
+      📚 参考書の進捗
+    </h3>
+
+    ${
+      bookHTML ||
+      `
+        <div class="card empty">
+          まだ参考書がありません。
+        </div>
+      `
+    }
+
+  `;
+
+}
+
+
+/* =========================
+   全画面更新
+========================= */
+
+function renderAll() {
+
+  renderBooks();
+
+  renderBookSelect();
+
+  renderPlans();
+
+  renderHome();
+
+  renderStats();
+
+  updateTimer();
+
+}
+
+
+/* =========================
+   HTMLエスケープ
+========================= */
+
+function escapeHTML(value) {
+
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+}
+
+
+/* =========================
+   初期表示
+========================= */
+
+renderAll();
