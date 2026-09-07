@@ -2084,6 +2084,83 @@ function renderStats() {
   );
 
 
+  let recordHTML =
+    "";
+
+
+  if (data.records.length > 0) {
+
+    recordHTML =
+      data.records
+        .slice()
+        .sort(
+          (a, b) =>
+            Number(b.start) -
+            Number(a.start)
+        )
+        .map(
+          record => {
+
+            const minutes =
+              Math.floor(
+                (
+                  Number(
+                    record.duration
+                  ) || 0
+                ) / 60
+              );
+
+
+            const date =
+              new Date(
+                Number(
+                  record.start
+                )
+              ).toLocaleString(
+                "ja-JP"
+              );
+
+
+            return `
+
+              <div class="card">
+
+                <strong>
+                  ${escapeHTML(
+                    record.subject ||
+                    "その他"
+                  )}
+                </strong>
+
+                <p>
+                  ${date}
+                </p>
+
+                <p>
+                  ⏱ ${minutes}分
+                </p>
+
+              </div>
+
+            `;
+
+          }
+        )
+        .join("");
+
+  } else {
+
+    recordHTML = `
+
+      <div class="card empty">
+        まだ学習記録がありません。
+      </div>
+
+    `;
+
+  }
+
+
   container.innerHTML = `
 
     <div class="card">
@@ -2116,6 +2193,14 @@ function renderStats() {
       </p>
 
     </div>
+
+
+    <h3>
+      📝 学習記録
+    </h3>
+
+
+    ${recordHTML}
 
 
     <h3>
