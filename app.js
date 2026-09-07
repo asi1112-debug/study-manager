@@ -1015,3 +1015,127 @@ renderAll();
 setInterval(() => {
   updateTimer();
 }, 1000);
+// ================================
+// 無料の参考書検索（Google Books）
+// ================================
+
+const aiBookSearchButton = document.getElementById("aiBookSearchButton");
+
+if (aiBookSearchButton) {
+  aiBookSearchButton.addEventListener("click", async () => {
+    const input = document.getElementById("aiBookSearch");
+    const result = document.getElementById("aiBookSearchResult");
+
+    if (!input || !result) return;
+
+    const keyword = input.value.trim();
+
+    if (!keyword) {
+      result.innerHTML = `
+        <p class="muted">参考書名を入力してください。</p>
+      `;
+      return;
+    }
+
+    result.innerHTML = `
+      <p class="muted">🔎 参考書を検索しています...</p>
+    `;
+
+    try {
+      const url =
+        "https://www.googleapis.com/books/v1/volumes?q=" +
+        encodeURIComponent(keyword) +
+        "&maxResults=10&langRestrict=ja";
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error("検索に失敗しました");
+      }
+
+      const resultData = await response.json();
+
+      if (!resultData.items || resultData.items.length === 0) {
+        result.innerHTML = `
+          <p class="muted">参考書が見つかりませんでした。</p>
+        `;
+        return;
+      }
+
+      result.innerHTML = resultData.items.map(item => {
+        const info = item.volumeInfo || {};
+
+        const title = info.title || "タイトル不明";
+        const authors = info.authors
+          ? info.authors.join("、")
+          : "著者不明";
+        const publisher = info.publisher || "出版社不明";
+
+        const isbn =
+          (info.industryIdentifiers || []).find(
+            id => id.type === "ISBN_13"
+          )?.identifier ||
+          (info.industryIdentifiers || []).find(
+            id => id.type === "ISBN_10"
+          )?.identifier ||
+          "";
+
+        const thumbnail =
+          info.imageLinks?.thumbnail || "";
+
+        return `
+          <div class="card">
+            ${
+              thumbnail
+                ? `<img src="${thumbnail}" alt="" style="max-width:100px;">`
+                : ""
+            }
+
+            <h3>${escapeHTML(title)}</h3>
+
+            <p>著者：${escapeHTML(authors)}</p>
+            <p>出版社：${escapeHTML(publisher)}</p>
+            ${
+              isbn
+                ? `<p>ISBN：${escapeHTML(isbn)}</p>`
+                : ""
+            }
+
+            <button
+              class="useBookSearchResult"
+              data-title="${escapeHTML(title)}"
+              data-isbn="${escapeHTML(isbn)}"
+            >
+              この参考書を登録
+            </button>
+          </div>
+        `;
+      }).join("");
+
+      document.querySelectorAll(".useBookSearchResult").forEach(button => {
+        button.addEventListener("click", () => {
+          const title = button.dataset.title || "";
+          const bookName = document.getElementById("bookName");
+
+          if (bookName) {
+            bookName.value = title;
+          }
+
+          window.scrollTo({
+            top: document.getElementById("bookName")?.offsetTop || 0,
+            behavior: "smooth"
+          });
+        });
+      });
+
+    } catch (error) {
+      console.error(error);
+
+      result.innerHTML = `
+        <p class="muted">
+          検索中にエラーが発生しました。
+        </p>
+      `;
+    }
+  });
+}
