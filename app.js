@@ -1508,4 +1508,773 @@ function renderHome() {
 
             problemsHTML += `
 
+                `${book.subject}：${book.name}`;
+
+      select.appendChild(
+        option
+      );
+
+    }
+  );
+
+  if (
+    data.books.some(
+      b =>
+        b.id === current
+    )
+  ) {
+
+    select.value =
+      current;
+
+  }
+
+}
+
+
+/* =========================
+   今日の大問目標
+========================= */
+
+function getDailyTargetProblems(
+  plan,
+  dateString
+) {
+
+  if (
+    !plan.bookId ||
+    !plan.problems ||
+    plan.problems <= 0
+  ) {
+
+    return [];
+
+  }
+
+  const book =
+    data.books.find(
+      b =>
+        b.id === plan.bookId
+    );
+
+  if (!book) return [];
+
+
+  const key =
+    `${dateString}_${plan.id}`;
+
+
+  if (
+    Array.isArray(
+      data.dailyTargets[key]
+    )
+  ) {
+
+    return data.dailyTargets[key]
+      .map(
+        number =>
+          book.problems.find(
+            p =>
+              p.number ===
+              Number(number)
+          )
+      )
+      .filter(Boolean);
+
+  }
+
+
+  const targets =
+    book.problems
+      .filter(
+        p =>
+          !p.done
+      )
+      .slice(
+        0,
+        plan.problems
+      );
+
+
+  data.dailyTargets[key] =
+    targets.map(
+      p =>
+        p.number
+    );
+
+
+  save();
+
+  return targets;
+
+}
+
+
+/* =========================
+   大問進捗
+========================= */
+
+function getDailyProblemProgress(
+  plan,
+  dateString
+) {
+
+  const targets =
+    getDailyTargetProblems(
+      plan,
+      dateString
+    );
+
+
+  if (
+    targets.length === 0
+  ) {
+
+    return {
+
+      target:
+        plan.problems || 0,
+
+      done:
+        plan.problems || 0,
+
+      remaining:
+        []
+
+    };
+
+  }
+
+
+  const done =
+    targets.filter(
+      p =>
+        p.done
+    ).length;
+
+
+  const remaining =
+    targets.filter(
+      p =>
+        !p.done
+    );
+
+
+  return {
+
+    target:
+      plan.problems,
+
+    done,
+
+    remaining
+
+  };
+
+}
+
+
+/* =========================
+   計画追加
+========================= */
+
+document
+  .getElementById("addPlan")
+  .addEventListener(
+    "click",
+    () => {
+
+      const weekday =
+        Number(
+          document
+            .getElementById(
+              "planDay"
+            )
+            .value
+        );
+
+      const subject =
+        document
+          .getElementById(
+            "planSubject"
+          )
+          .value;
+
+      const bookId =
+        document
+          .getElementById(
+            "planBook"
+          )
+          .value;
+
+      const minutes =
+        Number(
+          document
+            .getElementById(
+              "planMinutes"
+            )
+            .value
+        ) || 0;
+
+      const problems =
+        Number(
+          document
+            .getElementById(
+              "planProblems"
+            )
+            .value
+        ) || 0;
+
+
+      if (
+        minutes === 0 &&
+        problems === 0
+      ) {
+
+        alert(
+          "目標時間または大問数を入力してください。"
+        );
+
+        return;
+
+      }
+
+
+      if (
+        problems > 0 &&
+        !bookId
+      ) {
+
+        alert(
+          "大問数を指定する場合は、参考書を選択してください。"
+        );
+
+        return;
+
+      }
+
+
+      data.plans.push({
+
+        id:
+          createId(),
+
+        weekday,
+
+        subject,
+
+        bookId,
+
+        minutes,
+
+        problems
+
+      });
+
+
+      save();
+
+
+      document
+        .getElementById(
+          "planMinutes"
+        )
+        .value = "";
+
+      document
+        .getElementById(
+          "planProblems"
+        )
+        .value = "";
+
+
+      renderAll();
+
+    }
+  );
+
+
+/* =========================
+   計画編集
+========================= */
+
+function editPlan(id) {
+
+  const plan =
+    data.plans.find(
+      p =>
+        p.id === id
+    );
+
+  if (!plan) return;
+
+
+  const minutes =
+    prompt(
+      "目標時間（分）",
+      plan.minutes
+    );
+
+  if (
+    minutes === null
+  ) {
+    return;
+  }
+
+
+  const problems =
+    prompt(
+      "大問数",
+      plan.problems
+    );
+
+  if (
+    problems === null
+  ) {
+    return;
+  }
+
+
+  plan.minutes =
+    Number(minutes) || 0;
+
+  plan.problems =
+    Number(problems) || 0;
+
+
+  Object.keys(
+    data.dailyTargets
+  ).forEach(
+    key => {
+
+      if (
+        key.endsWith(
+          `_${plan.id}`
+        )
+      ) {
+
+        delete data.dailyTargets[key];
+
+      }
+
+    }
+  );
+
+
+  save();
+
+  renderAll();
+
+}
+
+
+/* =========================
+   計画削除
+========================= */
+
+function deletePlan(id) {
+
+  const ok =
+    confirm(
+      "この学習計画を削除しますか？"
+    );
+
+  if (!ok) return;
+
+
+  data.plans =
+    data.plans.filter(
+      p =>
+        p.id !== id
+    );
+
+
+  Object.keys(
+    data.dailyTargets
+  ).forEach(
+    key => {
+
+      if (
+        key.endsWith(
+          `_${id}`
+        )
+      ) {
+
+        delete data.dailyTargets[key];
+
+      }
+
+    }
+  );
+
+
+  save();
+
+  renderAll();
+
+}
+
+
+/* =========================
+   今日の実際の勉強時間
+========================= */
+
+function getTodaySubjectSeconds(
+  subject,
+  dateString = getLocalDate()
+) {
+
+  return data.records
+    .filter(
+      record =>
+        record.date === dateString &&
+        record.subject === subject
+    )
+    .reduce(
+      (sum, record) =>
+        sum + record.duration,
+      0
+    );
+
+}
+
+
+/* =========================
+   今日の全勉強時間
+========================= */
+
+function getTodayTotalSeconds(
+  dateString = getLocalDate()
+) {
+
+  return data.records
+    .filter(
+      record =>
+        record.date === dateString
+    )
+    .reduce(
+      (sum, record) =>
+        sum + record.duration,
+      0
+    );
+
+}
+
+
+/* =========================
+   計画表示
+========================= */
+
+function renderPlans() {
+
+  const container =
+    document.getElementById(
+      "planList"
+    );
+
+  container.innerHTML = "";
+
+
+  if (
+    data.plans.length === 0
+  ) {
+
+    container.innerHTML =
+      `
+      <div class="empty">
+        まだ学習計画がありません。
+      </div>
+      `;
+
+    return;
+
+  }
+
+
+  data.plans.forEach(
+    plan => {
+
+      const book =
+        data.books.find(
+          b =>
+            b.id === plan.bookId
+        );
+
+
+      const progress =
+        getDailyProblemProgress(
+          plan,
+          getLocalDate()
+        );
+
+
+      const div =
+        document.createElement(
+          "div"
+        );
+
+      div.className =
+        "plan-card";
+
+
+      let problemHTML = "";
+
+
+      if (
+        book &&
+        plan.problems > 0
+      ) {
+
+        problemHTML = `
+
+          <p>
+            📝 大問進捗：
+            <strong>
+              ${progress.done}
+              /
+              ${plan.problems}
+              個完了
+            </strong>
+          </p>
+
+        `;
+
+
+        if (
+          progress.remaining.length > 0
+        ) {
+
+          problemHTML += `
+
+            <p>
+              👉 残り：
+              <strong>
+                ${
+                  progress.remaining
+                    .map(
+                      p =>
+                        `大問${p.number}`
+                    )
+                    .join("・")
+                }
+              </strong>
+            </p>
+
+          `;
+
+        } else {
+
+          problemHTML += `
+
+            <p>
+              🎉
+              <strong>
+                今日の大問目標達成！
+              </strong>
+            </p>
+
+          `;
+
+        }
+
+      }
+
+
+      div.innerHTML = `
+
+        <h3>
+          ${dayNames[plan.weekday]}
+        </h3>
+
+        <p>
+          <strong>
+            ${escapeHTML(plan.subject)}
+          </strong>
+        </p>
+
+        ${
+          book
+            ? `
+              <div class="plan-book">
+                📚 ${escapeHTML(book.name)}
+              </div>
+            `
+            : ""
+        }
+
+        <p>
+          ⏱ ${plan.minutes}分
+          ・
+          📝 大問${plan.problems}個
+        </p>
+
+        ${problemHTML}
+
+        <div class="action-row">
+
+          <button
+            class="secondary"
+            onclick="editPlan('${plan.id}')">
+            ✏️ 編集
+          </button>
+
+          <button
+            class="danger"
+            onclick="deletePlan('${plan.id}')">
+            🗑️ 削除
+          </button>
+
+        </div>
+
+      `;
+
+
+      container.appendChild(
+        div
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================
+   ホーム
+========================= */
+
+function renderHome() {
+
+  const today =
+    new Date().getDay();
+
+  const todayString =
+    getLocalDate();
+
+
+  const plans =
+    data.plans.filter(
+      p =>
+        p.weekday === today
+    );
+
+
+  const container =
+    document.getElementById(
+      "todayPlans"
+    );
+
+  container.innerHTML = "";
+
+
+  if (
+    plans.length === 0
+  ) {
+
+    container.innerHTML =
+      `
+      <div class="card empty">
+        今日の学習計画はありません。
+      </div>
+      `;
+
+  } else {
+
+    plans.forEach(
+      plan => {
+
+        const book =
+          data.books.find(
+            b =>
+              b.id ===
+              plan.bookId
+          );
+
+
+        const actualSeconds =
+          getTodaySubjectSeconds(
+            plan.subject,
+            todayString
+          );
+
+
+        const actualMinutes =
+          Math.floor(
+            actualSeconds / 60
+          );
+
+
+        let achievementText = "";
+
+
+        if (
+          plan.minutes > 0
+        ) {
+
+          const percent =
+            Math.min(
+              100,
+              Math.round(
+                actualMinutes /
+                plan.minutes *
+                100
+              )
+            );
+
+
+          achievementText = `
+
+            <p>
+              📊 達成率：
+              <strong>
+                ${percent}%
+              </strong>
+            </p>
+
+          `;
+
+        }
+
+
+        let problemsHTML = "";
+
+
+        if (
+          book &&
+          plan.problems > 0
+        ) {
+
+          const progress =
+            getDailyProblemProgress(
+              plan,
+              todayString
+            );
+
+
+          problemsHTML = `
+
+            <p>
+              📝 大問目標：
+              ${plan.problems}個
+            </p>
+
+            <p>
+              📝 大問進捗：
+              <strong>
+                ${progress.done}
+                /
+                ${plan.problems}
+                個完了
+              </strong>
+            </p>
+
+          `;
+
+
+          if (
+            progress.remaining.length > 0
+          ) {
+
+            problemsHTML += `
+
           
