@@ -6,7 +6,8 @@ let data = JSON.parse(
   books: [],
   plans: [],
   records: [],
-  activeTimer: null
+  activeTimer: null,
+  dailyTargets: {}
 };
 
 
@@ -30,9 +31,21 @@ if (!("activeTimer" in data)) {
   data.activeTimer = null;
 }
 
+if (!data.dailyTargets || typeof data.dailyTargets !== "object") {
+  data.dailyTargets = {};
+}
+
 data.plans.forEach(plan => {
   if (!("bookId" in plan)) {
     plan.bookId = "";
+  }
+
+  if (!("minutes" in plan)) {
+    plan.minutes = 0;
+  }
+
+  if (!("problems" in plan)) {
+    plan.problems = 0;
   }
 });
 
@@ -80,6 +93,7 @@ function getLocalDate(date = new Date()) {
     ).padStart(2, "0");
 
   return `${y}-${m}-${d}`;
+
 }
 
 
@@ -482,7 +496,7 @@ function deleteBook(id) {
 
 
 /* =========================
-   大問の完了切り替え
+   大問完了切り替え
 ========================= */
 
 function toggleProblem(
@@ -704,16 +718,34 @@ function renderBookSelect() {
 
 
 /* =========================
-   今日やる大問
+   今日の大問目標を取得
 ========================= */
 
-function getTodayTargetProblems(
-  plan
+/*
+  曜日ごとの計画は毎週繰り返すため、
+  「今日」という日付ごとに目標大問を保存する。
+
+  例：
+
+  9月7日（月）
+  → 大問1・2・3
+
+  9月14日（月）
+  → 大問4・5・6
+
+  のように、前回までに終わった大問を
+  自動的に飛ばして次の大問を選ぶ。
+*/
+
+function getDailyTargetProblems(
+  plan,
+  dateString = getLocalDate()
 ) {
 
   if (
     !plan.bookId ||
-    !plan.problems
+    !plan.problems ||
+    plan.problems <= 0
   ) {
     return [];
   }
@@ -726,86 +758,118 @@ function getTodayTargetProblems(
 
   if (!book) return [];
 
+  const key =
+    `${dateString}_${plan.id}`;
+
   /*
-    未完了の大問を上から
-    plan.problems個取得
+    すでに今日の目標が保存されていれば
+    それを使う。
   */
 
-  return book.problems
-    .filter(
-      p =>
-        !p.done
+  if (
+    Array.isArray(
+      data.dailyTargets[key]
     )
-    .slice(
-      0,
-      plan.problems
+  ) {
+
+    return data.dailyTargets[key]
+      .map(number =>
+        book.problems.find(
+          p =>
+            p.number ===
+            Number(number)
+        )
+      )
+      .filter(Boolean);
+
+  }
+
+
+  /*
+    今日の目標を新しく作る。
+
+    未完了の大問から、
+    計画で指定した数だけ選ぶ。
+  */
+
+  const targets =
+    book.problems
+      .filter(
+        p =>
+          !p.done
+      )
+      .slice(
+        0,
+        plan.problems
+      );
+
+  data.dailyTargets[key] =
+    targets.map(
+      p =>
+        p.number
     );
+
+  save();
+
+  return targets;
 
 }
 
 
 /* =========================
-   今日の進捗
+   今日の大問進捗
 ========================= */
 
-function getTodayProblemProgress(
-  plan
+function getDailyProblemProgress(
+  plan,
+  dateString = getLocalDate()
 ) {
 
+  const targets =
+    getDailyTargetProblems(
+      plan,
+      dateString
+    );
+
   if (
-    !plan.bookId ||
-    !plan.problems
+    targets.length === 0
   ) {
 
     return {
-      done: 0,
-      target: plan.problems || 0
+
+      target:
+        plan.problems || 0,
+
+      done:
+        plan.problems || 0,
+
+      remaining:
+        []
+
     };
 
   }
 
-  const book =
-    data.books.find(
-      b =>
-        b.id === plan.bookId
-    );
+  const done =
+    targets.filter(
+      p =>
+        p.done
+    ).length;
 
-  if (!book) {
-
-    return {
-      done: 0,
-      target: plan.problems
-    };
-
-  }
-
-  const targetProblems =
-    getTodayTargetProblems(
-      plan
-    );
-
-  /*
-    現在の「次にやる大問」を
-    表示するための情報。
-  */
-
-  const completedTodayTarget =
-    Math.max(
-      0,
-      plan.problems -
-      targetProblems.length
+  const remaining =
+    targets.filter(
+      p =>
+        !p.done
     );
 
   return {
 
-    done:
-      Math.min(
-        completedTodayTarget,
-        plan.problems
-      ),
-
     target:
-      plan.problems
+      targets.length,
+
+    done,
+
+    remaining
 
   };
 
@@ -954,6 +1018,29 @@ function editPlan(id) {
   plan.problems =
     Number(problems) || 0;
 
+  /*
+    大問数を変更した場合は、
+    今日の目標を作り直す。
+  */
+
+  Object.keys(
+    data.dailyTargets
+  ).forEach(
+    key => {
+
+      if (
+        key.endsWith(
+          `_${plan.id}`
+        )
+      ) {
+
+        delete data.dailyTargets[key];
+
+      }
+
+    }
+  );
+
   save();
 
   renderAll();
@@ -979,6 +1066,24 @@ function deletePlan(id) {
       p =>
         p.id !== id
     );
+
+  Object.keys(
+    data.dailyTargets
+  ).forEach(
+    key => {
+
+      if (
+        key.endsWith(
+          `_${id}`
+        )
+      ) {
+
+        delete data.dailyTargets[key];
+
+      }
+
+    }
+  );
 
   save();
 
@@ -1021,6 +1126,11 @@ function renderPlans() {
             b.id === plan.bookId
         );
 
+      const progress =
+        getDailyProblemProgress(
+          plan
+        );
+
       const div =
         document.createElement(
           "div"
@@ -1028,11 +1138,6 @@ function renderPlans() {
 
       div.className =
         "plan-card";
-
-      const targetProblems =
-        getTodayTargetProblems(
-          plan
-        );
 
       let problemText = "";
 
@@ -1042,11 +1147,11 @@ function renderPlans() {
       ) {
 
         if (
-          targetProblems.length > 0
+          progress.remaining.length > 0
         ) {
 
           problemText =
-            targetProblems
+            progress.remaining
               .map(
                 p =>
                   `大問${p.number}`
@@ -1056,7 +1161,7 @@ function renderPlans() {
         } else {
 
           problemText =
-            "🎉 目標分完了";
+            "🎉 今日の大問目標達成！";
 
         }
 
@@ -1091,11 +1196,28 @@ function renderPlans() {
         </p>
 
         ${
-          problemText
+          book && plan.problems > 0
             ? `
               <p>
-                👉 ${problemText}
+                <strong>
+                  ${progress.done} / ${progress.target}個完了
+                </strong>
               </p>
+
+              ${
+                progress.remaining.length > 0
+                  ? `
+                    <p>
+                      👉 残り：
+                      ${problemText}
+                    </p>
+                  `
+                  : `
+                    <p>
+                      🎉 今日の大問目標達成！
+                    </p>
+                  `
+              }
             `
             : ""
         }
@@ -1137,6 +1259,9 @@ function renderHome() {
   const today =
     new Date().getDay();
 
+  const todayString =
+    getLocalDate();
+
   const plans =
     data.plans.filter(
       p =>
@@ -1171,9 +1296,10 @@ function renderHome() {
               plan.bookId
           );
 
-        const targetProblems =
-          getTodayTargetProblems(
-            plan
+        const progress =
+          getDailyProblemProgress(
+            plan,
+            todayString
           );
 
         const div =
@@ -1192,16 +1318,26 @@ function renderHome() {
         ) {
 
           if (
-            targetProblems.length > 0
+            progress.remaining.length > 0
           ) {
 
             problemsHTML = `
 
               <p>
-                📝 今日やる：
+                📝 大問進捗：
+                <strong>
+                  ${progress.done}
+                  /
+                  ${progress.target}
+                  個完了
+                </strong>
+              </p>
+
+              <p>
+                👉 残り：
                 <strong>
                   ${
-                    targetProblems
+                    progress.remaining
                       .map(
                         p =>
                           `大問${p.number}`
@@ -1218,7 +1354,20 @@ function renderHome() {
             problemsHTML = `
 
               <p>
-                🎉 今日の大問目標は完了！
+                📝 大問進捗：
+                <strong>
+                  ${progress.done}
+                  /
+                  ${progress.target}
+                  個完了
+                </strong>
+              </p>
+
+              <p>
+                🎉
+                <strong>
+                  今日の大問目標達成！
+                </strong>
               </p>
 
             `;
@@ -1249,7 +1398,7 @@ function renderHome() {
           </p>
 
           <p>
-            📝 大問：
+            📝 大問目標：
             ${plan.problems}個
           </p>
 
@@ -1266,9 +1415,6 @@ function renderHome() {
 
   }
 
-
-  const todayString =
-    getLocalDate();
 
   const total =
     data.records
@@ -1335,170 +1481,4 @@ function formatMinutes(seconds) {
 
   return (
     Math.floor(
-      seconds / 60
-    ) + "分"
-  );
-
-}
-
-
-function renderStats() {
-
-  const container =
-    document.getElementById(
-      "statsList"
-    );
-
-  const todaySeconds =
-    data.records
-      .filter(
-        r =>
-          r.date ===
-          getLocalDate()
-      )
-      .reduce(
-        (sum, r) =>
-          sum + r.duration,
-        0
-      );
-
-  const weekSeconds =
-    getTotalSecondsSince(6);
-
-  const monthSeconds =
-    getTotalSecondsSince(29);
-
-  const subjects = {};
-
-  data.records.forEach(
-    record => {
-
-      subjects[record.subject] =
-        (
-          subjects[record.subject]
-          || 0
-        ) + record.duration;
-
-    }
-  );
-
-  let subjectHTML = "";
-
-  Object.entries(subjects)
-    .forEach(
-      ([subject, seconds]) => {
-
-        subjectHTML += `
-
-          <div class="card">
-
-            <h3>
-              ${escapeHTML(subject)}
-            </h3>
-
-            <p>
-              ${formatMinutes(seconds)}
-            </p>
-
-          </div>
-
-        `;
-
-      }
-    );
-
-  if (!subjectHTML) {
-
-    subjectHTML =
-      `<div class="empty">
-        まだ学習記録がありません。
-      </div>`;
-
-  }
-
-  container.innerHTML = `
-
-    <div class="stat-grid">
-
-      <div class="stat-box">
-        今日
-        <strong>
-          ${formatMinutes(todaySeconds)}
-        </strong>
-      </div>
-
-      <div class="stat-box">
-        今週
-        <strong>
-          ${formatMinutes(weekSeconds)}
-        </strong>
-      </div>
-
-      <div class="stat-box">
-        今月
-        <strong>
-          ${formatMinutes(monthSeconds)}
-        </strong>
-      </div>
-
-      <div class="stat-box">
-        記録数
-        <strong>
-          ${data.records.length}
-        </strong>
-      </div>
-
-    </div>
-
-    <h3>
-      科目別
-    </h3>
-
-    ${subjectHTML}
-
-  `;
-
-}
-
-
-/* =========================
-   HTMLエスケープ
-========================= */
-
-function escapeHTML(text) {
-
-  const div =
-    document.createElement(
-      "div"
-    );
-
-  div.textContent =
-    String(text);
-
-  return div.innerHTML;
-
-}
-
-
-/* =========================
-   全体更新
-========================= */
-
-function renderAll() {
-
-  renderBookSelect();
-
-  renderHome();
-
-  renderBooks();
-
-  renderPlans();
-
-  renderStats();
-
-  updateTimer();
-
-}
-
-
-renderAll();
+      seco
