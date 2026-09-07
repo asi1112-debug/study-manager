@@ -1135,6 +1135,7 @@ if (aiBookSearchButton) {
         <p class="muted">
           検索中にエラーが発生しました。
         </p>
+        <p>詳細：${escapeHTML(error.message || String(error))}</p>
       `;
     }
   });
